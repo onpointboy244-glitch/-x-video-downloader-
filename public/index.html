@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X / Twitter Video Downloader | Free Online MP4 Downloader</title>
+  <meta name="description" content="Fast, free, and secure online X (Twitter) video downloader. Extract and download high-quality videos and GIFs from X/Twitter by pasting the tweet URL.">
+  
+  <!-- Modern Typography (Outfit) & Icons (Font Awesome) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+
+  <header class="app-header">
+    <div class="container header-container">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <i class="fa-brands fa-x-twitter"></i>
+        </div>
+        <span class="logo-text">X-Downloader</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#downloader" class="nav-link active">Downloader</a>
+        <a href="#how-to-use" class="nav-link">How to Use</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#faq" class="nav-link">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Downloader Section -->
+    <section id="downloader" class="downloader-section">
+      <div class="container hero-container">
+        <div class="hero-text-area">
+          <span class="badge">🚀 100% Free & Fast</span>
+          <h1 class="hero-title">Download <span class="gradient-text">X & Twitter</span> Videos Instantly</h1>
+          <p class="hero-subtitle">Paste the link of any X (Twitter) tweet containing a video or GIF, and extract direct download links in multiple resolutions in one click.</p>
+        </div>
+
+        <div class="downloader-card-wrapper">
+          <div class="downloader-card">
+            <form id="download-form" class="url-input-form">
+              <div class="input-group">
+                <span class="input-icon">
+                  <i class="fa-solid fa-link"></i>
+                </span>
+                <input 
+                  type="url" 
+                  id="tweet-url" 
+                  name="tweetUrl"
+                  placeholder="Paste X / Twitter post URL here... (e.g. https://x.com/user/status/...)" 
+                  required
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+                <button type="submit" id="btn-fetch" class="btn-primary">
+                  <span class="btn-text">Extract</span>
+                  <i class="fa-solid fa-wand-magic-sparkles btn-icon"></i>
+                </button>
+              </div>
+            </form>
+
+            <!-- Loading Spinner (hidden by default) -->
+            <div id="loader-container" class="loader-container hidden">
+              <div class="spinner-wrapper">
+                <div class="spinner"></div>
+                <div class="spinner-inner"></div>
+              </div>
+              <p class="loader-text">Analyzing tweet and extracting media streams...</p>
+            </div>
+
+            <!-- Error Alert (hidden by default) -->
+            <div id="error-container" class="error-container hidden">
+              <div class="error-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div class="error-content">
+                <h4 class="error-title">Extraction Failed</h4>
+                <p id="error-message" class="error-desc">Invalid tweet URL or video content not found. Make sure the URL is public and contains a video.</p>
+              </div>
+            </div>
+
+            <!-- Result Card (hidden by default) -->
+            <div id="result-container" class="result-container hidden">
+              <div class="result-divider"></div>
+              
+              <div class="tweet-info-card">
+                <div class="tweet-author-header">
+                  <div class="author-avatar">
+                    <i class="fa-solid fa-user-circle"></i>
+                  </div>
+                  <div class="author-details">
+                    <h3 id="tweet-author-name" class="author-name">X User</h3>
+                    <p id="tweet-author-handle" class="author-handle">@x_user</p>
+                  </div>
+                  <span class="tweet-badge"><i class="fa-brands fa-x-twitter"></i> Post</span>
+                </div>
+                <p id="tweet-description" class="tweet-text">Tweet caption goes here...</p>
+                
+                <div class="media-preview-container">
+                  <img id="video-thumbnail" src="" alt="Video Thumbnail Preview" class="video-thumbnail">
+                  <div class="preview-overlay">
+                    <i class="fa-solid fa-circle-play play-preview-icon"></i>
+                  </div>
+                </div>
+              </div>
+
+              <div class="download-options-container">
+                <h3 class="options-title"><i class="fa-solid fa-download"></i> Available Downloads</h3>
+                <p class="options-subtitle">Select your preferred quality. Click "Download" to save immediately.</p>
+                
+                <div id="download-links-list" class="download-links-list">
+                  <!-- Generated links will go here -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How to Use Section -->
+    <section id="how-to-use" class="how-to-use-section">
+      <div class="container text-center">
+        <h2 class="section-title">How to Download X Videos</h2>
+        <p class="section-subtitle">Save your favorite media in three simple steps.</p>
+        
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-number">01</div>
+            <div class="step-icon"><i class="fa-solid fa-copy"></i></div>
+            <h3 class="step-title">Copy Tweet Link</h3>
+            <p class="step-desc">Open X/Twitter, find the post containing the video, click the share icon and select "Copy link".</p>
+          </div>
+          
+          <div class="step-card">
+            <div class="step-number">02</div>
+            <div class="step-icon"><i class="fa-solid fa-paste"></i></div>
+            <h3 class="step-title">Paste the URL</h3>
+            <p class="step-desc">Paste the copied link into the input box above, then click the "Extract" button to parse the streams.</p>
+          </div>
+          
+          <div class="step-card">
+            <div class="step-number">03</div>
+            <div class="step-icon"><i class="fa-solid fa-file-arrow-down"></i></div>
+            <h3 class="step-title">Download Video</h3>
+            <p class="step-desc">Choose from the available resolutions (e.g. 720p, 480p) and download the video directly to your device.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features-section">
+      <div class="container">
+        <h2 class="section-title text-center">Engineered for Excellence</h2>
+        <p class="section-subtitle text-center">Discover the benefits of using X-Downloader.</p>
+        
+        <div class="features-grid">
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fa-solid fa-bolt"></i></div>
+            <div class="feature-content">
+              <h3 class="feature-title">Ultra-Fast Extraction</h3>
+              <p class="feature-desc">Our high-performance scraper extracts video resources and generates direct download links in fractions of a second.</p>
+            </div>
+          </div>
+          
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="feature-content">
+              <h3 class="feature-title">No Registrations Required</h3>
+              <p class="feature-desc">Download as many videos as you want completely free of charge, with no sign-ups, subscriptions, or hidden limits.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="feature-content">
+              <h3 class="feature-title">Secure & Confidential</h3>
+              <p class="feature-desc">All downloads are processed securely. We do not log the videos you download or keep records of your URLs, maintaining full privacy.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fa-solid fa-mobile-screen"></i></div>
+            <div class="feature-content">
+              <h3 class="feature-title">Full Device Support</h3>
+              <p class="feature-desc">Optimized to work flawlessly on iPhones, Android smartphones, iPads, Macs, Windows PC, and Linux systems.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq-section">
+      <div class="container max-width-md">
+        <h2 class="section-title text-center">Frequently Asked Questions</h2>
+        <p class="section-subtitle text-center">Everything you need to know about downloading X/Twitter videos.</p>
+        
+        <div class="faq-list">
+          <div class="faq-item">
+            <div class="faq-question" id="faq-q1">
+              <span>Is it completely free to use?</span>
+              <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
+            </div>
+            <div class="faq-answer">
+              <p>Yes, X-Downloader is completely free. There are no fees, premium subscription tiers, or download limits. You can download as many videos and GIFs as you like.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question" id="faq-q2">
+              <span>Where are the downloaded videos saved?</span>
+              <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
+            </div>
+            <div class="faq-answer">
+              <p>Videos are usually saved in your browser's default "Downloads" folder. On smartphones, they will also appear in your Photos or Gallery app after downloading.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question" id="faq-q3">
+              <span>Why do I get an error when fetching a link?</span>
+              <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
+            </div>
+            <div class="faq-answer">
+              <p>This can happen if the tweet is from a private account (which cannot be fetched), the tweet has been deleted, the post does not contain any video or GIF, or if X is temporarily rate-limiting requests. Make sure the tweet is public and readable by anyone.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question" id="faq-q4">
+              <span>Does X-Downloader store copies of downloaded videos?</span>
+              <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
+            </div>
+            <div class="faq-answer">
+              <p>Absolutely not. The app acts as an on-the-fly streaming gateway to extract and deliver direct media files. We do not store, host, or cache any videos or metadata on our server.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="container footer-content text-center">
+      <p class="footer-copy">&copy; 2026 X-Downloader. Developed for educational purposes. All media assets belong to their respective owners.</p>
+      <div class="footer-links">
+        <a href="#downloader">Downloader</a>
+        <a href="#how-to-use">How to Use</a>
+        <a href="#features">Features</a>
+        <a href="#faq">FAQ</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
