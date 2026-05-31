@@ -1,4 +1,46 @@
 /* Reset & Base Styles */
+
+/* Tweet Statistics Styles */
+.tweet-stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.tweet-stats span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tweet-stats span::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 600;
+}
+
+/* Specific icons for each stat */
+.reply-count::before {
+  content: "\f0e5"; /* fa-comment */
+  color: var(--color-accent);
+}
+
+.retweet-count::before {
+  content: "\f079"; /* fa-retweet */
+  color: var(--color-primary);
+}
+
+.favorite-count::before {
+  content: "\f004"; /* fa-heart */
+  color: var(--color-secondary);
+}
+
+/* Optional hover effect */
+.tweet-stats span:hover {
+  color: var(--text-primary);
+  cursor: default;
+}
 * {
   margin: 0;
   padding: 0;

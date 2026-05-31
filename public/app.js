@@ -94,7 +94,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set text contents
     authorName.textContent = data.author || 'X User';
     authorHandle.textContent = data.username ? `@${data.username}` : '@x_user';
-    tweetDescription.textContent = data.title || 'Video Post';
+
+    // Set tweet description and statistics
+    const tweetDescriptionElement = document.getElementById('tweet-description');
+    if (data.title) {
+      tweetDescriptionElement.innerHTML = `
+        <span class="tweet-caption">${data.title}</span>
+        <div class="tweet-stats">
+          <span class="reply-count">${data.statistics?.reply_count || 0} replies</span>
+          <span class="retweet-count">${data.statistics?.retweet_count || 0} retweets</span>
+          <span class="favorite-count">${data.statistics?.favorite_count || 0} likes</span>
+        </div>
+      `;
+    } else {
+      tweetDescriptionElement.innerHTML = `
+        <span class="tweet-caption">Video Post</span>
+        <div class="tweet-stats">
+          <span class="reply-count">0 replies</span>
+          <span class="retweet-count">0 retweets</span>
+          <span class="favorite-count">0 likes</span>
+        </div>
+      `;
+    }
     
     // Set thumbnail
     if (data.thumbnail) {
