@@ -56,6 +56,11 @@ app.get("/api/fetch", async (req, res) => {
       );
 
       if (!videoMedia) {
+        console.warn("No video or GIF found after processing.", {
+          mediaList,
+          dataMedia: data.media,
+          resultStatus: result.status,
+        });
         return res
           .status(404)
           .json({
@@ -63,6 +68,9 @@ app.get("/api/fetch", async (req, res) => {
             error: "No video or GIF found in this tweet.",
           });
       }
+
+      console.log("Extracted video media:", JSON.stringify(videoMedia, null, 2));
+      console.log("Video variants for download:", JSON.stringify(videoMedia.videos, null, 2));
 
       // Format the response
       const response = {
@@ -270,7 +278,17 @@ app.get("/api/download", async (req, res) => {
     // Pipe the response stream
     response.data.pipe(res);
   } catch (error) {
-    console.error("Error proxying video:", error.message);
+    console.error(`Error proxying video from ${videoUrl}:`, error.message);
+    // Log the full error object for more details
+    if (error.response) {
+      console.error("Error response data:", error.response.data);
+      console.error("Error response status:", error.response.status);
+      console.error("Error response headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("Error request:", error.request);
+    } else {
+      console.error("Error message:", error.message);
+    }
     res
       .status(500)
       .send(
