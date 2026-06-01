@@ -51,6 +51,19 @@ app.get("/api/fetch", async (req, res) => {
     if (result && result.status === "success" && result.result) {
       const data = result.result;
       const mediaList = data.media || [];
+
+      if (mediaList.length === 0) {
+        console.log("TwitterDL found no media. Attempting TwitSave fallback scraping...");
+        const fallbackResult = await fetchFromTwitsaveFallback(tweetUrl);
+        if (fallbackResult) {
+          return res.json(fallbackResult);
+        }
+        return res.status(404).json({
+          success: false,
+          error: "No media found by TwitterDL and fallback failed.",
+        });
+      }
+
       const videoMedia = mediaList.find(
         (m) => m.type === "video" || m.type === "animated_gif",
       );
