@@ -257,15 +257,21 @@ app.get("/api/download", async (req, res) => {
 
   try {
     console.log(`Streaming video from: ${videoUrl}`);
+    const headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    };
+
+    if (videoUrl.includes("t.co") || videoUrl.includes("twitter.com") || videoUrl.includes("twimg.com")) {
+      headers["Referer"] = "https://twitter.com/";
+    } else if (videoUrl.includes("twitsave.com")) {
+      headers["Referer"] = "https://twitsave.com/";
+    }
+
     const response = await axios({
       method: "get",
       url: videoUrl,
       responseType: "stream",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        Referer: "https://twitsave.com/",
-      },
+      headers: headers,
     });
 
     // Set standard download headers
