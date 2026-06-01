@@ -77,9 +77,9 @@ app.get("/api/fetch", async (req, res) => {
         videos: [],
         // إضافة كائن الإحصائيات لمنع خطأ undefined في الفرونت إند
         statistics: {
-          reply_count: data.reply_count || 0,
-          retweet_count: data.retweet_count || 0,
-          favorite_count: data.favorite_count || 0,
+          reply_count: data.statistics?.reply_count || 0,
+          retweet_count: data.statistics?.retweet_count || 0,
+          favorite_count: data.statistics?.favorite_count || 0,
         },
       };
 
