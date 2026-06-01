@@ -101,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tweetDescriptionElement.innerHTML = `
         <span class="tweet-caption">${data.title}</span>
         <div class="tweet-stats">
-          <span class="reply-count">${data.statistics?.reply_count || data.statistics?.replieCount || 0} replies</span>
-          <span class="retweet-count">${data.statistics?.retweet_count || data.statistics?.retweetCount || 0} retweets</span>
-          <span class="favorite-count">${data.statistics?.favorite_count || data.statistics?.favoriteCount || 0} likes</span>
+          <span class="reply-count">${data.statistics?.reply_count || 0} replies</span>
+          <span class="retweet-count">${data.statistics?.retweet_count || 0} retweets</span>
+          <span class="favorite-count">${data.statistics?.favorite_count || 0} likes</span>
         </div>
       `;
     } else {
