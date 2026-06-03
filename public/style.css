@@ -986,4 +986,22 @@ body {
   .btn-download-action {
     justify-content: center;
   }
+
+  .ad-card-banner {
+    margin: 12px 0;
+  }
+}
+
+/* Ad banner inside downloader card */
+.ad-card-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px 0;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 90px;
+  overflow: hidden;
 }
