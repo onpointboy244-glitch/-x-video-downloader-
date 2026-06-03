@@ -58,6 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Format bytes into human-readable file size
+  function formatFileSize(bytes) {
+    if (!bytes || bytes <= 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let unitIndex = 0;
+    let size = bytes;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return size.toFixed(unitIndex === 0 ? 0 : 1) + ' ' + units[unitIndex];
+  }
+
   // Handle Form Submission
   downloadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -91,9 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Display results in the DOM
   function displayResults(data) {
-    // Set text contents
+    // Set text contents — author is the display name, username is the handle
     authorName.textContent = data.author || 'X User';
-    authorHandle.textContent = data.username ? `@${data.username}` : '@x_user';
+    authorHandle.textContent = data.username ? `@${data.username}` : '';
 
     // Set tweet description and statistics
     const tweetDescriptionElement = document.getElementById('tweet-description');
@@ -143,22 +156,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // Construct the item element
         const itemDiv = document.createElement('div');
         itemDiv.className = 'download-item';
-        
+
         // Quality info section
         const qualityDiv = document.createElement('div');
         qualityDiv.className = 'download-quality';
-        
+
         const badge = document.createElement('span');
         badge.className = 'quality-badge';
-        badge.textContent = video.resolution.toUpperCase();
-        
-        const typeSpan = document.createElement('span');
-        typeSpan.className = 'file-type';
-        typeSpan.textContent = 'Format: MP4 (Video)';
-        
+        // Display resolution nicely: "720x1280" → "720p" or keep as-is
+        let displayRes = video.resolution;
+        if (displayRes && displayRes !== 'unknown') {
+          // If format is "720x1280", show "720p"
+          const dimMatch = displayRes.match(/^(\d+)x(\d+)$/);
+          if (dimMatch) {
+            displayRes = `${dimMatch[2]}p`;
+          }
+        }
+        badge.textContent = (displayRes || 'N/A').toUpperCase();
+
+        // File type and size info
+        const infoSpan = document.createElement('span');
+        infoSpan.className = 'file-type';
+        const sizeStr = video.fileSize ? formatFileSize(video.fileSize) : '';
+        infoSpan.textContent = sizeStr ? `MP4 • ${sizeStr}` : 'MP4 (Video)';
+
         qualityDiv.appendChild(badge);
-        qualityDiv.appendChild(typeSpan);
-        
+        qualityDiv.appendChild(infoSpan);
+
         // Action button (uses server proxy to force browser download)
         const downloadBtn = document.createElement('a');
         downloadBtn.className = 'btn-download-action';
@@ -169,10 +193,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>Download</span>
           <i class="fa-solid fa-arrow-down-to-bracket"></i>
         `;
-        
+
         itemDiv.appendChild(qualityDiv);
         itemDiv.appendChild(downloadBtn);
-        
+
         downloadLinksList.appendChild(itemDiv);
       });
     } else {

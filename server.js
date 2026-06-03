@@ -90,13 +90,13 @@ app.get("/api/fetch", async (req, res) => {
         success: true,
         id: data.id,
         title: data.description || "X Video",
-        author: data.author || "X User",
-        username: data.screen_name || "",
+        author: (data.author && data.author.username) ? data.author.username : "X User",
+        username: (data.author && data.author.username) ? data.author.username : "",
         thumbnail:
-          data.thumbnail ||
-          (videoMedia.expanded_url ? videoMedia.expanded_url : ""),
+          (videoMedia && videoMedia.cover) ||
+          (data && data.thumbnail) ||
+          "",
         videos: [],
-        // إضافة كائن الإحصائيات لمنع خطأ undefined في الفرونت إند
         statistics: {
           reply_count: data.statistics?.reply_count || 0,
           retweet_count: data.statistics?.retweet_count || 0,
@@ -104,29 +104,43 @@ app.get("/api/fetch", async (req, res) => {
         },
       };
 
-      // Extract video variants
-      if (Array.isArray(videoMedia.url)) {
-        response.videos = videoMedia.url.map((v) => ({
-          resolution: v.dimension || "unknown",
+      // Extract video variants — twitter-downloader puts them in videoMedia.videos
+      if (videoMedia && Array.isArray(videoMedia.videos)) {
+        response.videos = videoMedia.videos.map((v) => ({
+          resolution: v.quality || "unknown",
           url: v.url,
-          width: v.width,
-          height: v.height,
+          bitrate: v.bitrate || 0,
         }));
-      } else if (typeof videoMedia.url === "string") {
-        response.videos = [
-          {
-            resolution: "default",
-            url: videoMedia.url,
-          },
-        ];
       }
 
-      // If no videos but has variants in another place
-      if (response.videos.length === 0 && videoMedia.videos) {
-        response.videos = videoMedia.videos.map((v) => ({
-          resolution: v.dimension || `${v.width}x${v.height}` || "default",
-          url: v.url,
-        }));
+      // Fetch file sizes for each video via HEAD requests
+      try {
+        const videosWithSizes = await Promise.allSettled(
+          response.videos.map(async (video) => {
+            try {
+              const headRes = await axios.head(video.url, {
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                  "Referer": video.url.includes("twitsave") ? "https://twitsave.com/" : "https://twitter.com/",
+                },
+                timeout: 8000,
+                maxRedirects: 5,
+              });
+              const contentLength = headRes.headers["content-length"];
+              return {
+                ...video,
+                fileSize: contentLength ? parseInt(contentLength, 10) : null,
+              };
+            } catch {
+              return { ...video, fileSize: null };
+            }
+          })
+        );
+        response.videos = videosWithSizes
+          .filter((r) => r.status === "fulfilled")
+          .map((r) => r.value);
+      } catch (sizeErr) {
+        console.error("Error fetching file sizes:", sizeErr.message);
       }
 
       return res.json(response);
@@ -175,53 +189,85 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
       },
-      timeout: 10000,
+      timeout: 15000,
     });
 
     const cheerio = require("cheerio");
     const $ = cheerio.load(response.data);
 
-    // Try to find the download buttons
-    const downloadBtns = $('a[href*="twitsave.com/download"]');
-    if (downloadBtns.length === 0) {
-      // Try another selector
-      const anyDownload = $('a[href*="/download?"]').first();
-      if (anyDownload.length === 0) return null;
+    // Extract tweet text / title — try multiple selectors
+    let title = "";
+    // TwitSave puts the tweet text in various places
+    title = $("p.mb-3, p.text-sm, .tweet-text, [class*='tweet']").first().text().trim();
+    if (!title) {
+      title = $("title").text().trim();
+      // Page title is often "Download X video by @user — TwitSave", extract just the description
+      if (title.includes(" — ")) title = title.split(" — ")[0];
+      if (title.startsWith("Download ")) title = title.replace("Download ", "").replace(" video", "");
+    }
+    if (!title) title = "X Video";
+
+    // Extract author name and username
+    let author = "X User";
+    let username = "";
+    // Try to get from page heading or meta
+    const headingText = $("h1, h2, h3").first().text().trim();
+    const pageTitle = $("title").text().trim();
+    // Page title format: "Download X video by @username — TwitSave"
+    const byMatch = pageTitle.match(/by\s+(@[\w]+)/i);
+    if (byMatch) {
+      username = byMatch[1].replace("@", "");
+      author = byMatch[1];
+    }
+    // Also try heading
+    if (!username && headingText) {
+      const userMatch = headingText.match(/@([\w]+)/);
+      if (userMatch) {
+        username = userMatch[1];
+        author = headingText;
+      }
     }
 
-    const title =
-      $("p.text-gray-600.dark\\:text-gray-300, div.p-4 p")
-        .first()
-        .text()
-        .trim() || "X Video";
-    const author =
-      $("h3.font-bold, div.font-bold").first().text().trim() || "X User";
-    const username =
-      $("p.text-gray-500, div.text-gray-500").first().text().trim() || "";
-
-    let thumbnail =
-      $("div.aspect-video img, div.relative img").first().attr("src") || "";
+    // Extract thumbnail
+    let thumbnail = "";
+    $("img").each((i, el) => {
+      const src = $(el).attr("src") || "";
+      const alt = $(el).attr("alt") || "";
+      if (src.includes("pbs.twimg.com") || src.includes("video") || alt.includes("video") || alt.includes("tweet")) {
+        if (!thumbnail) thumbnail = src;
+      }
+    });
+    if (!thumbnail) {
+      // First large image on the page
+      thumbnail = $("img[src*='pbs.twimg.com'], img[src*='twimg.com']").first().attr("src") || "";
+    }
     if (thumbnail && !thumbnail.startsWith("http")) {
       thumbnail = new URL(thumbnail, "https://twitsave.com").toString();
     }
 
     const videos = [];
 
-    // Find all links containing twitsave download or query parameters
+    // Find all download links — broader selector coverage
     $("a").each((i, el) => {
       const href = $(el).attr("href");
       if (
         href &&
-        (href.includes("twitsave.com/download") || href.includes("/download?"))
+        (href.includes("twitsave.com/download") ||
+          href.includes("/download?") ||
+          href.includes("download") && href.includes("twitsave"))
       ) {
         const text = $(el).text().trim();
-        // Extract resolution if mentioned in text (e.g., "Download Video (720p)")
+        // Extract resolution from text like "Download Video (720p)" or "720p" or "360p"
         const resMatch =
-          text.match(/\((\d+p|\d+x\d+)\)/) || text.match(/(\d+p|\d+x\d+)/);
+          text.match(/\((\d+p|\d+x\d+)\)/) ||
+          text.match(/(\d+p)/) ||
+          text.match(/(\d+x\d+)/);
         const resolution = resMatch
           ? resMatch[1]
-          : `Format ${videos.length + 1}`;
+          : `Quality ${videos.length + 1}`;
 
         let absoluteUrl = href;
         if (href.startsWith("/")) {
@@ -247,7 +293,6 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
         username,
         thumbnail,
         videos,
-        // إرجاع قيم صفرية في حالة الـ Fallback
         statistics: {
           reply_count: 0,
           retweet_count: 0,
