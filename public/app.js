@@ -71,10 +71,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return size.toFixed(unitIndex === 0 ? 0 : 1) + ' ' + units[unitIndex];
   }
 
+  // Full-page ad overlay
+  function showAdOverlay() {
+    const overlay = document.createElement('div');
+    overlay.id = 'ad-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 99999;
+      background: transparent;
+      cursor: pointer;
+    `;
+    overlay.innerHTML = '<script src="https://pl29594598.effectivecpmnetwork.com/54/e6/7c/54e67c6cc1e1c3c1588c33167d55f5f3.js"></script>';
+    document.body.appendChild(overlay);
+
+    // Remove overlay after 5 seconds so user can interact with results
+    setTimeout(() => {
+      overlay.remove();
+    }, 5000);
+  }
+
   // Handle Form Submission
   downloadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const tweetUrl = tweetUrlInput.value.trim();
     if (!tweetUrl) return;
 
@@ -82,6 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     resetUI();
     showLoader(true);
     btnFetch.disabled = true;
+
+    // Show full-page ad on extract
+    showAdOverlay();
 
     try {
       console.log(`Sending API request to fetch info for: ${tweetUrl}`);
