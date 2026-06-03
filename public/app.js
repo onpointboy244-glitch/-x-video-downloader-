@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return size.toFixed(unitIndex === 0 ? 0 : 1) + ' ' + units[unitIndex];
   }
 
-  // Full-page ad overlay
+  // Full-page ad overlay — entire page becomes clickable for the ad
   function showAdOverlay() {
     const overlay = document.createElement('div');
     overlay.id = 'ad-overlay';
@@ -82,13 +82,23 @@ document.addEventListener('DOMContentLoaded', () => {
       background: transparent;
       cursor: pointer;
     `;
-    overlay.innerHTML = '<script src="https://pl29594598.effectivecpmnetwork.com/54/e6/7c/54e67c6cc1e1c3c1588c33167d55f5f3.js"></script>';
+
+    // Intercept all clicks and forward to ad
+    overlay.addEventListener('click', function(e) {
+      // The ad script is already loaded — trigger popup by opening a blank window
+      var adWindow = window.open('', '_blank');
+      if (adWindow) {
+        adWindow.document.write('<html><head><title>Ad</title></head><body></body></html>');
+        window.focus();
+      }
+    });
+
     document.body.appendChild(overlay);
 
-    // Remove overlay after 5 seconds so user can interact with results
-    setTimeout(() => {
+    // Remove overlay after 8 seconds so user can interact with results
+    setTimeout(function() {
       overlay.remove();
-    }, 5000);
+    }, 8000);
   }
 
   // Handle Form Submission
