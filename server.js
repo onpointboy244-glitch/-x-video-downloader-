@@ -3,14 +3,6 @@ const cors = require("cors");
 const axios = require("axios");
 const path = require("path");
 
-let TwitterDL;
-try {
-  const td = require("twitter-downloader");
-  TwitterDL = td.TwitterDL;
-} catch (e) {
-  console.error("Failed to require twitter-downloader directly:", e.message);
-}
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -18,170 +10,128 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Fetch video info endpoint
-app.get("/api/fetch", async (req, res) => {
-  const tweetUrl = req.query.url;
+// Extract tweet ID from various Twitter/X URL formats
+function extractTweetId(url) {
+  const match = url.match(/status\/(\d+)/);
+  return match ? match[1] : null;
+}
 
-  if (!tweetUrl) {
-    return res.status(400).json({ success: false, error: "URL is required" });
+// Format bytes into human-readable file size
+function formatFileSize(bytes) {
+  if (!bytes || bytes <= 0) return null;
+  const units = ["B", "KB", "MB", "GB"];
+  let unitIndex = 0;
+  let size = bytes;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
   }
+  return size.toFixed(unitIndex === 0 ? 0 : 1) + " " + units[unitIndex];
+}
 
-  // Basic Twitter URL regex validation (matches x.com and twitter.com)
-  const twitterRegex =
-    /https?:\/\/(www\.)?(twitter|x)\.com\/[a-zA-Z0-9_]+\/status\/[0-9]+/;
-  if (!twitterRegex.test(tweetUrl)) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        error:
-          "Invalid X/Twitter Tweet URL. Make sure it is a valid status URL.",
-      });
-  }
-
+// Fetch file size via HEAD request
+async function fetchFileSize(videoUrl) {
   try {
-    console.log(`Fetching media for: ${tweetUrl}`);
-    let result;
-    if (TwitterDL) {
-      result = await TwitterDL(tweetUrl);
-    } else {
-      throw new Error("twitter-downloader package not available");
-    }
-
-    if (result && result.status === "success" && result.result) {
-      const data = result.result;
-      const mediaList = data.media || [];
-
-      if (mediaList.length === 0) {
-        console.log("TwitterDL found no media. Attempting TwitSave fallback scraping...");
-        const fallbackResult = await fetchFromTwitsaveFallback(tweetUrl);
-        if (fallbackResult) {
-          return res.json(fallbackResult);
-        }
-        return res.status(404).json({
-          success: false,
-          error: "No media found by TwitterDL and fallback failed.",
-        });
-      }
-
-      const videoMedia = mediaList.find(
-        (m) => m.type === "video" || m.type === "animated_gif",
-      );
-
-      if (!videoMedia) {
-        console.warn("No video or GIF found after processing.", {
-          mediaList,
-          dataMedia: data.media,
-          resultStatus: result.status,
-        });
-        return res
-          .status(404)
-          .json({
-            success: false,
-            error: "No video or GIF found in this tweet.",
-          });
-      }
-
-      console.log("Extracted video media:", JSON.stringify(videoMedia, null, 2));
-      console.log("Video variants for download:", JSON.stringify(videoMedia.videos, null, 2));
-
-      // Format the response
-      const response = {
-        success: true,
-        id: data.id,
-        title: data.description || "X Video",
-        author: (data.author && data.author.username) ? data.author.username : "X User",
-        username: (data.author && data.author.username) ? data.author.username : "",
-        thumbnail:
-          (videoMedia && videoMedia.cover) ||
-          (data && data.thumbnail) ||
-          "",
-        videos: [],
-        statistics: {
-          reply_count: data.statistics?.reply_count || 0,
-          retweet_count: data.statistics?.retweet_count || 0,
-          favorite_count: data.statistics?.favorite_count || 0,
-        },
-      };
-
-      // Extract video variants — twitter-downloader puts them in videoMedia.videos
-      if (videoMedia && Array.isArray(videoMedia.videos)) {
-        response.videos = videoMedia.videos.map((v) => ({
-          resolution: v.quality || "unknown",
-          url: v.url,
-          bitrate: v.bitrate || 0,
-        }));
-      }
-
-      // Fetch file sizes for each video via HEAD requests
-      try {
-        const videosWithSizes = await Promise.allSettled(
-          response.videos.map(async (video) => {
-            try {
-              const headRes = await axios.head(video.url, {
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                  "Referer": video.url.includes("twitsave") ? "https://twitsave.com/" : "https://twitter.com/",
-                },
-                timeout: 8000,
-                maxRedirects: 5,
-              });
-              const contentLength = headRes.headers["content-length"];
-              return {
-                ...video,
-                fileSize: contentLength ? parseInt(contentLength, 10) : null,
-              };
-            } catch {
-              return { ...video, fileSize: null };
-            }
-          })
-        );
-        response.videos = videosWithSizes
-          .filter((r) => r.status === "fulfilled")
-          .map((r) => r.value);
-      } catch (sizeErr) {
-        console.error("Error fetching file sizes:", sizeErr.message);
-      }
-
-      return res.json(response);
-    } else {
-      console.error("TwitterDL returned failure or was empty:", result);
-      // Attempt fallback if TwitterDL returned error status
-      console.log("Attempting TwitSave fallback scraping...");
-      const fallbackResult = await fetchFromTwitsaveFallback(tweetUrl);
-      if (fallbackResult) {
-        return res.json(fallbackResult);
-      }
-      return res.status(400).json({
-        success: false,
-        error:
-          (result && result.message) ||
-          "Failed to fetch video details from X/Twitter.",
-      });
-    }
-  } catch (error) {
-    console.error("Error fetching Twitter video:", error);
-
-    // Attempt fallback parsing if TwitterDL fails
-    try {
-      console.log("Attempting TwitSave fallback scraping...");
-      const fallbackResult = await fetchFromTwitsaveFallback(tweetUrl);
-      if (fallbackResult) {
-        return res.json(fallbackResult);
-      }
-    } catch (fallbackError) {
-      console.error("Fallback scraping failed too:", fallbackError);
-    }
-
-    return res.status(500).json({
-      success: false,
-      error:
-        "Failed to retrieve video. This might be due to X/Twitter rate limits, age-restricted content, or server constraints. Please try again later.",
+    const headRes = await axios.head(videoUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": videoUrl.includes("twitsave")
+          ? "https://twitsave.com/"
+          : "https://twitter.com/",
+      },
+      timeout: 8000,
+      maxRedirects: 5,
     });
+    const contentLength = headRes.headers["content-length"];
+    return contentLength ? parseInt(contentLength, 10) : null;
+  } catch {
+    return null;
   }
-});
+}
 
-// TwitSave fallback scraper
+// Primary extraction using FxTwitter API (free, no auth required)
+async function fetchFromFxTwitter(tweetId) {
+  try {
+    // Try fxtwitter first
+    const r = await axios.get(
+      `https://api.fxtwitter.com/i/status/${tweetId}`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        timeout: 15000,
+      },
+    );
+
+    if (r.data && r.data.tweet) {
+      const tweet = r.data.tweet;
+      return {
+        success: true,
+        id: tweetId,
+        title: tweet.text || "X Video",
+        author: tweet.author?.name || "X User",
+        username: tweet.author?.screen_name || "",
+        thumbnail: tweet.thumbnail_url || "",
+        mediaURLs: tweet.mediaURLs || [],
+        mediaExtended: tweet.media_extended || [],
+        statistics: {
+          reply_count: tweet.replies || 0,
+          retweet_count: tweet.retweets || 0,
+          favorite_count: tweet.likes || 0,
+        },
+        hasMedia: tweet.hasMedia || false,
+      };
+    }
+  } catch (err) {
+    console.log(
+      "FxTwitter failed:",
+      err.response?.status,
+      err.message,
+    );
+  }
+  return null;
+}
+
+// Fallback: VxTwitter API
+async function fetchFromVxTwitter(tweetId) {
+  try {
+    const r = await axios.get(
+      `https://api.vxtwitter.com/i/status/${tweetId}`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        timeout: 15000,
+      },
+    );
+
+    if (r.data && r.data.tweetID) {
+      const tweet = r.data;
+      return {
+        success: true,
+        id: tweetId,
+        title: tweet.text || "X Video",
+        author: tweet.user_name || "X User",
+        username: tweet.user_screen_name || "",
+        thumbnail: tweet.user_profile_image_url || "",
+        mediaURLs: tweet.mediaURLs || [],
+        mediaExtended: tweet.media_extended || [],
+        statistics: {
+          reply_count: tweet.replies || 0,
+          retweet_count: tweet.retweets || 0,
+          favorite_count: tweet.likes || 0,
+        },
+        hasMedia: tweet.hasMedia || false,
+      };
+    }
+  } catch (err) {
+    console.log(
+      "VxTwitter failed:",
+      err.response?.status,
+      err.message,
+    );
+  }
+  return null;
+}
+
+// Fallback: TwitSave scraper
 async function fetchFromTwitsaveFallback(tweetUrl) {
   try {
     const targetUrl = `https://twitsave.com/info?url=${encodeURIComponent(tweetUrl)}`;
@@ -189,7 +139,8 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept":
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
       },
       timeout: 15000,
@@ -198,31 +149,39 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
     const cheerio = require("cheerio");
     const $ = cheerio.load(response.data);
 
-    // Extract tweet text / title — try multiple selectors
+    // Check if page says no video found
+    const bodyText = $("body").text();
+    if (
+      bodyText.includes("could not find any video") ||
+      bodyText.includes("private account")
+    ) {
+      return null;
+    }
+
+    // Extract tweet text / title
     let title = "";
-    // TwitSave puts the tweet text in various places
-    title = $("p.mb-3, p.text-sm, .tweet-text, [class*='tweet']").first().text().trim();
+    title = $("p.mb-3, p.text-sm, .tweet-text, [class*='tweet']")
+      .first()
+      .text()
+      .trim();
     if (!title) {
       title = $("title").text().trim();
-      // Page title is often "Download X video by @user — TwitSave", extract just the description
       if (title.includes(" — ")) title = title.split(" — ")[0];
-      if (title.startsWith("Download ")) title = title.replace("Download ", "").replace(" video", "");
+      if (title.startsWith("Download "))
+        title = title.replace("Download ", "").replace(" video", "");
     }
     if (!title) title = "X Video";
 
-    // Extract author name and username
+    // Extract author
     let author = "X User";
     let username = "";
-    // Try to get from page heading or meta
     const headingText = $("h1, h2, h3").first().text().trim();
     const pageTitle = $("title").text().trim();
-    // Page title format: "Download X video by @username — TwitSave"
     const byMatch = pageTitle.match(/by\s+(@[\w]+)/i);
     if (byMatch) {
       username = byMatch[1].replace("@", "");
       author = byMatch[1];
     }
-    // Also try heading
     if (!username && headingText) {
       const userMatch = headingText.match(/@([\w]+)/);
       if (userMatch) {
@@ -236,31 +195,35 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
     $("img").each((i, el) => {
       const src = $(el).attr("src") || "";
       const alt = $(el).attr("alt") || "";
-      if (src.includes("pbs.twimg.com") || src.includes("video") || alt.includes("video") || alt.includes("tweet")) {
+      if (
+        src.includes("pbs.twimg.com") ||
+        src.includes("video") ||
+        alt.includes("video") ||
+        alt.includes("tweet")
+      ) {
         if (!thumbnail) thumbnail = src;
       }
     });
     if (!thumbnail) {
-      // First large image on the page
-      thumbnail = $("img[src*='pbs.twimg.com'], img[src*='twimg.com']").first().attr("src") || "";
+      thumbnail =
+        $("img[src*='pbs.twimg.com'], img[src*='twimg.com']")
+          .first()
+          .attr("src") || "";
     }
     if (thumbnail && !thumbnail.startsWith("http")) {
       thumbnail = new URL(thumbnail, "https://twitsave.com").toString();
     }
 
     const videos = [];
-
-    // Find all download links — broader selector coverage
     $("a").each((i, el) => {
       const href = $(el).attr("href");
       if (
         href &&
         (href.includes("twitsave.com/download") ||
           href.includes("/download?") ||
-          href.includes("download") && href.includes("twitsave"))
+          (href.includes("download") && href.includes("twitsave")))
       ) {
         const text = $(el).text().trim();
-        // Extract resolution from text like "Download Video (720p)" or "720p" or "360p"
         const resMatch =
           text.match(/\((\d+p|\d+x\d+)\)/) ||
           text.match(/(\d+p)/) ||
@@ -274,12 +237,8 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
           absoluteUrl = new URL(href, "https://twitsave.com").toString();
         }
 
-        // Avoid duplicates
         if (!videos.some((v) => v.url === absoluteUrl)) {
-          videos.push({
-            resolution,
-            url: absoluteUrl,
-          });
+          videos.push({ resolution, url: absoluteUrl });
         }
       }
     });
@@ -293,18 +252,153 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
         username,
         thumbnail,
         videos,
-        statistics: {
-          reply_count: 0,
-          retweet_count: 0,
-          favorite_count: 0,
-        },
+        statistics: { reply_count: 0, retweet_count: 0, favorite_count: 0 },
       };
     }
   } catch (err) {
-    console.error("Error in TwitSave fallback:", err.message);
+    console.error("TwitSave fallback error:", err.message);
   }
   return null;
 }
+
+// Fetch video info endpoint
+app.get("/api/fetch", async (req, res) => {
+  const tweetUrl = req.query.url;
+
+  if (!tweetUrl) {
+    return res
+      .status(400)
+      .json({ success: false, error: "URL is required" });
+  }
+
+  // Basic Twitter URL regex validation
+  const twitterRegex =
+    /https?:\/\/(www\.)?(twitter|x)\.com\/[a-zA-Z0-9_]+\/status\/[0-9]+/;
+  if (!twitterRegex.test(tweetUrl)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid X/Twitter Tweet URL. Make sure it is a valid status URL.",
+    });
+  }
+
+  const tweetId = extractTweetId(tweetUrl);
+  if (!tweetId) {
+    return res.status(400).json({
+      success: false,
+      error: "Could not extract tweet ID from URL.",
+    });
+  }
+
+  try {
+    console.log(`Fetching media for tweet ID: ${tweetId}`);
+
+    // Method 1: Try FxTwitter API (free, no auth, returns video URLs + metadata)
+    let fxResult = await fetchFromFxTwitter(tweetId);
+
+    if (fxResult && fxResult.hasMedia && fxResult.mediaURLs.length > 0) {
+      // Build video list from media URLs
+      const videos = [];
+      for (let i = 0; i < fxResult.mediaURLs.length; i++) {
+        const mediaUrl = fxResult.mediaURLs[i];
+        const mediaInfo = fxResult.mediaExtended[i] || {};
+
+        // Determine resolution from media info
+        let resolution = "unknown";
+        if (mediaInfo.width && mediaInfo.height) {
+          resolution = `${mediaInfo.width}x${mediaInfo.height}`;
+        }
+
+        // Fetch file size
+        const fileSize = await fetchFileSize(mediaUrl);
+
+        videos.push({
+          resolution,
+          url: mediaUrl,
+          fileSize,
+        });
+      }
+
+      return res.json({
+        success: true,
+        id: fxResult.id,
+        title: fxResult.title,
+        author: fxResult.author,
+        username: fxResult.username,
+        thumbnail: fxResult.thumbnail,
+        videos,
+        statistics: fxResult.statistics,
+      });
+    }
+
+    // Method 2: Try VxTwitter API
+    let vxResult = await fetchFromVxTwitter(tweetId);
+
+    if (vxResult && vxResult.hasMedia && vxResult.mediaURLs.length > 0) {
+      const videos = [];
+      for (let i = 0; i < vxResult.mediaURLs.length; i++) {
+        const mediaUrl = vxResult.mediaURLs[i];
+        const mediaInfo = vxResult.mediaExtended[i] || {};
+
+        let resolution = "unknown";
+        if (mediaInfo.width && mediaInfo.height) {
+          resolution = `${mediaInfo.width}x${mediaInfo.height}`;
+        }
+
+        const fileSize = await fetchFileSize(mediaUrl);
+
+        videos.push({
+          resolution,
+          url: mediaUrl,
+          fileSize,
+        });
+      }
+
+      return res.json({
+        success: true,
+        id: vxResult.id,
+        title: vxResult.title,
+        author: vxResult.author,
+        username: vxResult.username,
+        thumbnail: vxResult.thumbnail,
+        videos,
+        statistics: vxResult.statistics,
+      });
+    }
+
+    // Method 3: If APIs returned tweet data but no media, return what we have
+    // (tweet might not have video, or video might be in a different format)
+    if (fxResult && !fxResult.hasMedia) {
+      return res.status(404).json({
+        success: false,
+        error:
+          "This tweet does not contain a video. Only video tweets are supported.",
+      });
+    }
+
+    // Method 4: TwitSave fallback
+    console.log("Trying TwitSave fallback...");
+    const twitsaveResult = await fetchFromTwitsaveFallback(tweetUrl);
+    if (twitsaveResult) {
+      // Fetch file sizes for TwitSave videos
+      for (const video of twitsaveResult.videos) {
+        video.fileSize = await fetchFileSize(video.url);
+      }
+      return res.json(twitsaveResult);
+    }
+
+    return res.status(404).json({
+      success: false,
+      error: "Could not extract video from this tweet. The tweet may not contain a video, or it may be from a private account.",
+    });
+  } catch (error) {
+    console.error("Error fetching Twitter video:", error);
+    return res.status(500).json({
+      success: false,
+      error:
+        "Failed to retrieve video. This might be due to X/Twitter rate limits or server constraints. Please try again later.",
+    });
+  }
+});
 
 // Proxy endpoint to force download with custom file name
 app.get("/api/download", async (req, res) => {
@@ -316,10 +410,16 @@ app.get("/api/download", async (req, res) => {
   try {
     console.log(`Streaming video from: ${videoUrl}`);
     const headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     };
 
-    if (videoUrl.includes("t.co") || videoUrl.includes("twitter.com") || videoUrl.includes("twimg.com")) {
+    if (
+      videoUrl.includes("t.co") ||
+      videoUrl.includes("twitter.com") ||
+      videoUrl.includes("x.com") ||
+      videoUrl.includes("twimg.com")
+    ) {
       headers["Referer"] = "https://twitter.com/";
     } else if (videoUrl.includes("twitsave.com")) {
       headers["Referer"] = "https://twitsave.com/";
@@ -332,27 +432,18 @@ app.get("/api/download", async (req, res) => {
       headers: headers,
     });
 
-    // Set standard download headers
-    res.setHeader("Content-Disposition", 'attachment; filename="x-video.mp4"');
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="x-video.mp4"',
+    );
     res.setHeader(
       "Content-Type",
       response.headers["content-type"] || "video/mp4",
     );
 
-    // Pipe the response stream
     response.data.pipe(res);
   } catch (error) {
     console.error(`Error proxying video from ${videoUrl}:`, error.message);
-    // Log the full error object for more details
-    if (error.response) {
-      console.error("Error response data:", error.response.data);
-      console.error("Error response status:", error.response.status);
-      console.error("Error response headers:", error.response.headers);
-    } else if (error.request) {
-      console.error("Error request:", error.request);
-    } else {
-      console.error("Error message:", error.message);
-    }
     res
       .status(500)
       .send(

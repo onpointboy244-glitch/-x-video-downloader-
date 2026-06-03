@@ -1,0 +1,41 @@
+{
+  "name": "restling",
+  "version": "0.9.1",
+  "description": "Restling is a lightweight Node.js module for building promise-based asynchronous HTTP requests.",
+  "main": "restling.js",
+  "scripts": {
+    "test": "mocha spec/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/lucasfeliciano/restling.git"
+  },
+  "keywords": [
+    "resquest",
+    "http",
+    "async",
+    "asynchronous",
+    "promise",
+    "restler",
+    "rest",
+    "parallel",
+    "bluebird"
+  ],
+  "author": "Lucas Feliciano <mail@lucasfeliciano.com> (http://lucasfeliciano.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lucasfeliciano/restling/issues"
+  },
+  "homepage": "https://github.com/lucasfeliciano/restling",
+  "dependencies": {
+    "bluebird": "^2.3.11",
+    "lodash": "^3.2.0",
+    "restler": "^3.2.2"
+  },
+  "devDependencies": {
+    "chai": "^1.9.1",
+    "chai-as-promised": "^4.1.1",
+    "mocha": "^1.20.1",
+    "nock": "^0.59.1"
+  }
+}
