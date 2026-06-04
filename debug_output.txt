@@ -1,0 +1,5 @@
+=== FxTwitter ===
+hasMedia: undefined
+mediaURLs count: 0
+mediaURLs: undefined
+media_extended: undefined

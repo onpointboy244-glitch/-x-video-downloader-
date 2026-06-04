@@ -53,7 +53,6 @@ async function fetchFileSize(videoUrl) {
 // Primary extraction using FxTwitter API (free, no auth required)
 async function fetchFromFxTwitter(tweetId) {
   try {
-    // Try fxtwitter first
     const r = await axios.get(
       `https://api.fxtwitter.com/i/status/${tweetId}`,
       {
@@ -64,21 +63,56 @@ async function fetchFromFxTwitter(tweetId) {
 
     if (r.data && r.data.tweet) {
       const tweet = r.data.tweet;
+
+      // Extract video variants from the new FxTwitter response format.
+      // Media info is under tweet.media.all[].variants (not tweet.mediaURLs).
+      let videoVariants = [];
+      let hasMedia = false;
+
+      if (tweet.media && tweet.media.all && tweet.media.all.length > 0) {
+        const firstMedia = tweet.media.all[0];
+        if (firstMedia.variants) {
+          hasMedia = true;
+          // Filter to only MP4 video variants (skip m3u8 playlists)
+          for (const variant of firstMedia.variants) {
+            if (variant.content_type === "video/mp4" && variant.url) {
+              const bitrate = variant.bitrate || 0;
+              // Derive a quality label from bitrate
+              let qualityLabel;
+              if (bitrate >= 2000000) qualityLabel = "720p";
+              else if (bitrate >= 800000) qualityLabel = "480p";
+              else qualityLabel = "360p";
+
+              videoVariants.push({
+                url: variant.url,
+                bitrate,
+                qualityLabel,
+                width: firstMedia.width,
+                height: firstMedia.height,
+              });
+            }
+          }
+        }
+      }
+
+      // Sort by bitrate descending (best quality first)
+      videoVariants.sort((a, b) => b.bitrate - a.bitrate);
+
       return {
         success: true,
         id: tweetId,
-        title: tweet.text || "X Video",
+        title: (tweet.text && typeof tweet.text === "string" ? tweet.text : "") ||
+              (tweet.raw_text?.text || "X Video"),
         author: tweet.author?.name || "X User",
         username: tweet.author?.screen_name || "",
-        thumbnail: tweet.thumbnail_url || "",
-        mediaURLs: tweet.mediaURLs || [],
-        mediaExtended: tweet.media_extended || [],
+        thumbnail: tweet.media?.all?.[0]?.thumbnail_url || tweet.thumbnail_url || "",
+        videoVariants,
         statistics: {
           reply_count: tweet.replies || 0,
           retweet_count: tweet.retweets || 0,
           favorite_count: tweet.likes || 0,
         },
-        hasMedia: tweet.hasMedia || false,
+        hasMedia,
       };
     }
   } catch (err) {
@@ -110,7 +144,7 @@ async function fetchFromVxTwitter(tweetId) {
         title: tweet.text || "X Video",
         author: tweet.user_name || "X User",
         username: tweet.user_screen_name || "",
-        thumbnail: tweet.user_profile_image_url || "",
+        thumbnail: tweet.media_extended?.[0]?.thumbnail_url || tweet.user_profile_image_url || "",
         mediaURLs: tweet.mediaURLs || [],
         mediaExtended: tweet.media_extended || [],
         statistics: {
@@ -261,6 +295,95 @@ async function fetchFromTwitsaveFallback(tweetUrl) {
   return null;
 }
 
+// Quality variants to try when generating alternative resolutions.
+// Twitter's CDN may not have all of these — we validate each with a HEAD request.
+const QUALITY_VARIANTS = [
+  { label: "720p", width: 1280, height: 720 },
+  { label: "480p", width: 854, height: 480 },
+  { label: "360p", width: 640, height: 360 },
+];
+
+// Build candidate video URLs from a twimg video URL by swapping the resolution segment.
+// Returns an array of { resolution, qualityLabel, url } candidates (not yet validated).
+function buildVideoVariantCandidates(videoUrl) {
+  if (!videoUrl) return [];
+
+  // Match twimg video URL pattern:
+  //   https://video.twimg.com/ext_tw_video/{id}/pu/vid/{W}x{H}/{token}.mp4?tag=12
+  const twimgMatch = videoUrl.match(
+    /^(https?:\/\/video\.twimg\.com\/ext_tw_video\/\d+\/pu\/vid\/)\d+x\d+(\/[^?]+\.mp4)(\?.*)?$/,
+  );
+
+  if (!twimgMatch) {
+    // Not a twimg URL — return as-is (e.g. external source, TwitSave, etc.)
+    return [{ resolution: "unknown", qualityLabel: "MP4", url: videoUrl, isOriginal: true }];
+  }
+
+  const [, basePrefix, fileSuffix, queryString] = twimgMatch;
+  const qs = queryString || "";
+
+  // Include the original URL first (guaranteed to work), then variants
+  const originalResolution = videoUrl.match(/(\d+)x(\d+)/);
+  const originalLabel = originalResolution
+    ? `${parseInt(originalResolution[2], 10)}p`
+    : "Original";
+
+  const candidates = [
+    {
+      resolution: originalResolution
+        ? `${originalResolution[1]}x${originalResolution[2]}`
+        : "unknown",
+      qualityLabel: originalLabel,
+      url: videoUrl,
+      isOriginal: true,
+    },
+  ];
+
+  for (const variant of QUALITY_VARIANTS) {
+    // Skip if this variant matches the original resolution
+    if (originalResolution && variant.width === parseInt(originalResolution[1], 10)) {
+      continue;
+    }
+    candidates.push({
+      resolution: `${variant.width}x${variant.height}`,
+      qualityLabel: variant.label,
+      url: `${basePrefix}${variant.width}x${variant.height}${fileSuffix}${qs}`,
+      isOriginal: false,
+    });
+  }
+
+  return candidates;
+}
+
+// Validate video variant candidates by checking which URLs actually exist (HEAD request).
+// Returns only variants that respond with 200, each with fileSize populated.
+async function resolveVideoVariants(candidates) {
+  const videos = [];
+  for (const candidate of candidates) {
+    const fileSize = await fetchFileSize(candidate.url);
+    if (fileSize !== null) {
+      // URL is valid — include it
+      videos.push({
+        resolution: candidate.resolution,
+        qualityLabel: candidate.qualityLabel,
+        url: candidate.url,
+        fileSize,
+      });
+    } else if (candidate.isOriginal) {
+      // Original URL from API should always work, but if it doesn't,
+      // include it anyway with null fileSize so the user has at least one option
+      videos.push({
+        resolution: candidate.resolution,
+        qualityLabel: candidate.qualityLabel,
+        url: candidate.url,
+        fileSize: null,
+      });
+    }
+    // Non-original variants that 404 are silently dropped
+  }
+  return videos;
+}
+
 // Fetch video info endpoint
 app.get("/api/fetch", async (req, res) => {
   const tweetUrl = req.query.url;
@@ -292,31 +415,28 @@ app.get("/api/fetch", async (req, res) => {
   try {
     console.log(`Fetching media for tweet ID: ${tweetId}`);
 
-    // Method 1: Try FxTwitter API (free, no auth, returns video URLs + metadata)
+    // Method 1: Try FxTwitter API — returns videoVariants directly from the API
     let fxResult = await fetchFromFxTwitter(tweetId);
 
-    if (fxResult && fxResult.hasMedia && fxResult.mediaURLs.length > 0) {
-      // Build video list from media URLs
+    if (fxResult && fxResult.hasMedia && fxResult.videoVariants.length > 0) {
+      // FxTwitter already provides all quality variants — just fetch file sizes
       const videos = [];
-      for (let i = 0; i < fxResult.mediaURLs.length; i++) {
-        const mediaUrl = fxResult.mediaURLs[i];
-        const mediaInfo = fxResult.mediaExtended[i] || {};
-
-        // Determine resolution from media info
-        let resolution = "unknown";
-        if (mediaInfo.width && mediaInfo.height) {
-          resolution = `${mediaInfo.width}x${mediaInfo.height}`;
-        }
-
-        // Fetch file size
-        const fileSize = await fetchFileSize(mediaUrl);
-
+      for (const variant of fxResult.videoVariants) {
+        const fileSize = await fetchFileSize(variant.url);
+        // Parse resolution from the URL (e.g. "480x852" from the path)
+        const resMatch = variant.url.match(/vid\/avc1\/(\d+x\d+)/);
+        const resolution = resMatch ? resMatch[1] : `${variant.width}x${variant.height}`;
         videos.push({
           resolution,
-          url: mediaUrl,
+          qualityLabel: variant.qualityLabel,
+          url: variant.url,
           fileSize,
         });
       }
+
+      // Filter out any that 404'd (fileSize null), unless all failed
+      const validVideos = videos.filter(v => v.fileSize !== null);
+      const finalVideos = validVideos.length > 0 ? validVideos : videos;
 
       return res.json({
         success: true,
@@ -325,31 +445,23 @@ app.get("/api/fetch", async (req, res) => {
         author: fxResult.author,
         username: fxResult.username,
         thumbnail: fxResult.thumbnail,
-        videos,
+        videos: finalVideos,
         statistics: fxResult.statistics,
       });
     }
 
-    // Method 2: Try VxTwitter API
+    // Method 2: Try VxTwitter API — returns single best URL, generate variants
     let vxResult = await fetchFromVxTwitter(tweetId);
 
     if (vxResult && vxResult.hasMedia && vxResult.mediaURLs.length > 0) {
-      const videos = [];
-      for (let i = 0; i < vxResult.mediaURLs.length; i++) {
-        const mediaUrl = vxResult.mediaURLs[i];
-        const mediaInfo = vxResult.mediaExtended[i] || {};
+      const bestUrl = vxResult.mediaURLs[0];
+      const candidates = buildVideoVariantCandidates(bestUrl);
+      const videos = await resolveVideoVariants(candidates);
 
-        let resolution = "unknown";
-        if (mediaInfo.width && mediaInfo.height) {
-          resolution = `${mediaInfo.width}x${mediaInfo.height}`;
-        }
-
-        const fileSize = await fetchFileSize(mediaUrl);
-
-        videos.push({
-          resolution,
-          url: mediaUrl,
-          fileSize,
+      if (videos.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: "Video found but no playable streams could be validated. The tweet video may be restricted.",
         });
       }
 
@@ -365,8 +477,7 @@ app.get("/api/fetch", async (req, res) => {
       });
     }
 
-    // Method 3: If APIs returned tweet data but no media, return what we have
-    // (tweet might not have video, or video might be in a different format)
+    // Method 3: If FxTwitter returned data but no media
     if (fxResult && !fxResult.hasMedia) {
       return res.status(404).json({
         success: false,
@@ -430,6 +541,9 @@ app.get("/api/download", async (req, res) => {
       url: videoUrl,
       responseType: "stream",
       headers: headers,
+      maxRedirects: 5,
+      timeout: 30000,
+      validateStatus: (status) => status < 400,
     });
 
     res.setHeader(

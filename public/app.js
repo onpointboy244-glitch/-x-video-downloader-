@@ -140,6 +140,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Determine quality tier class for badge coloring
+  function getQualityClass(label) {
+    if (!label) return null;
+    const lower = label.toLowerCase();
+    if (lower.includes("720") || lower.includes("1080") || lower.includes("2160")) return "hq";
+    if (lower.includes("480")) return "mq";
+    if (lower.includes("360") || lower.includes("240") || lower.includes("144")) return "lq";
+    return null;
+  }
+
   // Display results in the DOM
   function displayResults(data) {
     // Set text contents — author is the display name, username is the handle
@@ -202,9 +212,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const badge = document.createElement("span");
         badge.className = "quality-badge";
-        // Display resolution nicely: "720x1280" → "720p" or keep as-is
-        let displayRes = video.resolution;
-        if (displayRes && displayRes !== "unknown") {
+        // Use qualityLabel from server if available, otherwise parse from resolution
+        let displayRes = video.qualityLabel || video.resolution;
+        if (displayRes && displayRes !== "unknown" && !video.qualityLabel) {
           // If format is "720x1280", show "720p"
           const dimMatch = displayRes.match(/^(\d+)x(\d+)$/);
           if (dimMatch) {
@@ -212,6 +222,12 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
         badge.textContent = (displayRes || "N/A").toUpperCase();
+
+        // Add quality-tier color class
+        const qualityClass = getQualityClass(video.qualityLabel || video.resolution);
+        if (qualityClass) {
+          badge.classList.add(qualityClass);
+        }
 
         // File type and size info
         const infoSpan = document.createElement("span");

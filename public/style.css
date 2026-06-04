@@ -992,6 +992,25 @@ body {
   }
 }
 
+/* Quality tier badge colors */
+.quality-badge.hq {
+  background: rgba(0, 230, 118, 0.2);
+  border-color: rgba(0, 230, 118, 0.5);
+  color: #00e676;
+}
+
+.quality-badge.mq {
+  background: rgba(255, 214, 0, 0.15);
+  border-color: rgba(255, 214, 0, 0.45);
+  color: #ffd600;
+}
+
+.quality-badge.lq {
+  background: rgba(255, 138, 0, 0.15);
+  border-color: rgba(255, 138, 0, 0.45);
+  color: #ff8a00;
+}
+
 /* Ad banner inside downloader card */
 .ad-card-banner {
   display: flex;

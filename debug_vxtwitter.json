@@ -1,0 +1,48 @@
+{
+  "allSameType": true,
+  "article": null,
+  "combinedMediaUrl": null,
+  "communityNote": null,
+  "conversationID": "2062071814172422253",
+  "date": "Wed Jun 03 07:20:06 +0000 2026",
+  "date_epoch": 1780471206,
+  "fetched_on": 1780503733,
+  "hasMedia": true,
+  "hashtags": [],
+  "lang": "zxx",
+  "likes": 1625,
+  "mediaURLs": [
+    "https://video.twimg.com/ext_tw_video/2062071792395505664/pu/vid/avc1/720x1280/gJtX5UHoEy6_dqH9.mp4"
+  ],
+  "media_extended": [
+    {
+      "altText": null,
+      "duration_millis": 7778,
+      "id_str": "2062071792395505664",
+      "size": {
+        "height": 1280,
+        "width": 720
+      },
+      "thumbnail_url": "https://pbs.twimg.com/ext_tw_video_thumb/2062071792395505664/pu/img/X1qyLSN6ounpkO6p.jpg",
+      "type": "video",
+      "url": "https://video.twimg.com/ext_tw_video/2062071792395505664/pu/vid/avc1/720x1280/gJtX5UHoEy6_dqH9.mp4"
+    }
+  ],
+  "pollData": null,
+  "possibly_sensitive": false,
+  "qrt": null,
+  "qrtURL": null,
+  "replies": 8,
+  "replyingTo": null,
+  "replyingToID": null,
+  "retweet": null,
+  "retweetURL": null,
+  "retweets": 42,
+  "text": "https://t.co/k9nuff4khJ",
+  "translation": null,
+  "tweetID": "2062071814172422253",
+  "tweetURL": "https://twitter.com/isthatbog/status/2062071814172422253",
+  "user_name": "'",
+  "user_profile_image_url": "https://pbs.twimg.com/profile_images/2055425438323798016/e174UCuo_normal.jpg",
+  "user_screen_name": "isthatbog"
+}
