@@ -64,39 +64,56 @@ async function fetchFromFxTwitter(tweetId) {
     if (r.data && r.data.tweet) {
       const tweet = r.data.tweet;
 
-      // Extract video variants from the new FxTwitter response format.
-      // Media info is under tweet.media.all[].variants (not tweet.mediaURLs).
-      let videoVariants = [];
+      // Extract video variants grouped by media item.
+      // A tweet can have multiple videos — each item in tweet.media.all[] is a separate video.
+      let mediaGroups = [];
       let hasMedia = false;
 
       if (tweet.media && tweet.media.all && tweet.media.all.length > 0) {
-        const firstMedia = tweet.media.all[0];
-        if (firstMedia.variants) {
-          hasMedia = true;
-          // Filter to only MP4 video variants (skip m3u8 playlists)
-          for (const variant of firstMedia.variants) {
-            if (variant.content_type === "video/mp4" && variant.url) {
-              const bitrate = variant.bitrate || 0;
-              // Derive a quality label from bitrate
-              let qualityLabel;
-              if (bitrate >= 2000000) qualityLabel = "720p";
-              else if (bitrate >= 800000) qualityLabel = "480p";
-              else qualityLabel = "360p";
+        let videoIndex = 0;
+        for (const mediaItem of tweet.media.all) {
+          // Only include video-type media (skip images/GIFs without video variants)
+          const variants = mediaItem.variants || [];
+          const mp4Variants = variants.filter(
+            (v) => v.content_type === "video/mp4" && v.url,
+          );
 
-              videoVariants.push({
-                url: variant.url,
-                bitrate,
-                qualityLabel,
-                width: firstMedia.width,
-                height: firstMedia.height,
-              });
-            }
-          }
+          if (mp4Variants.length === 0) continue;
+
+          hasMedia = true;
+          videoIndex++;
+
+          // Build quality variants for this specific video
+          const qualityVariants = mp4Variants.map((variant) => {
+            const bitrate = variant.bitrate || 0;
+            let qualityLabel;
+            if (bitrate >= 2000000) qualityLabel = "720p";
+            else if (bitrate >= 800000) qualityLabel = "480p";
+            else qualityLabel = "360p";
+
+            return {
+              url: variant.url,
+              bitrate,
+              qualityLabel,
+              width: mediaItem.width,
+              height: mediaItem.height,
+            };
+          });
+
+          // Sort by bitrate descending (best quality first)
+          qualityVariants.sort((a, b) => b.bitrate - a.bitrate);
+
+          mediaGroups.push({
+            index: videoIndex,
+            id: mediaItem.id || String(videoIndex),
+            thumbnail: mediaItem.thumbnail_url || "",
+            duration: mediaItem.duration || 0,
+            width: mediaItem.width,
+            height: mediaItem.height,
+            variants: qualityVariants,
+          });
         }
       }
-
-      // Sort by bitrate descending (best quality first)
-      videoVariants.sort((a, b) => b.bitrate - a.bitrate);
 
       return {
         success: true,
@@ -106,7 +123,8 @@ async function fetchFromFxTwitter(tweetId) {
         author: tweet.author?.name || "X User",
         username: tweet.author?.screen_name || "",
         thumbnail: tweet.media?.all?.[0]?.thumbnail_url || tweet.thumbnail_url || "",
-        videoVariants,
+        mediaGroups,
+        mediaCount: mediaGroups.length,
         statistics: {
           reply_count: tweet.replies || 0,
           retweet_count: tweet.retweets || 0,
@@ -418,25 +436,39 @@ app.get("/api/fetch", async (req, res) => {
     // Method 1: Try FxTwitter API — returns videoVariants directly from the API
     let fxResult = await fetchFromFxTwitter(tweetId);
 
-    if (fxResult && fxResult.hasMedia && fxResult.videoVariants.length > 0) {
-      // FxTwitter already provides all quality variants — just fetch file sizes
-      const videos = [];
-      for (const variant of fxResult.videoVariants) {
-        const fileSize = await fetchFileSize(variant.url);
-        // Parse resolution from the URL (e.g. "480x852" from the path)
-        const resMatch = variant.url.match(/vid\/avc1\/(\d+x\d+)/);
-        const resolution = resMatch ? resMatch[1] : `${variant.width}x${variant.height}`;
-        videos.push({
-          resolution,
-          qualityLabel: variant.qualityLabel,
-          url: variant.url,
-          fileSize,
+    if (fxResult && fxResult.hasMedia && fxResult.mediaGroups.length > 0) {
+      // FxTwitter provides media groups — each group is a separate video.
+      // Fetch file sizes for every variant in every group.
+      const mediaGroups = [];
+      for (const group of fxResult.mediaGroups) {
+        const variants = [];
+        for (const variant of group.variants) {
+          const fileSize = await fetchFileSize(variant.url);
+          // Parse resolution from the URL (e.g. "480x852" from the path)
+          const resMatch = variant.url.match(/vid\/avc1\/(\d+x\d+)/);
+          const resolution = resMatch ? resMatch[1] : `${variant.width}x${variant.height}`;
+          variants.push({
+            resolution,
+            qualityLabel: variant.qualityLabel,
+            url: variant.url,
+            fileSize,
+          });
+        }
+
+        // Filter out any that 404'd (fileSize null), unless all failed
+        const validVariants = variants.filter(v => v.fileSize !== null);
+        const finalVariants = validVariants.length > 0 ? validVariants : variants;
+
+        mediaGroups.push({
+          index: group.index,
+          id: group.id,
+          thumbnail: group.thumbnail,
+          duration: group.duration,
+          width: group.width,
+          height: group.height,
+          variants: finalVariants,
         });
       }
-
-      // Filter out any that 404'd (fileSize null), unless all failed
-      const validVideos = videos.filter(v => v.fileSize !== null);
-      const finalVideos = validVideos.length > 0 ? validVideos : videos;
 
       return res.json({
         success: true,
@@ -445,7 +477,8 @@ app.get("/api/fetch", async (req, res) => {
         author: fxResult.author,
         username: fxResult.username,
         thumbnail: fxResult.thumbnail,
-        videos: finalVideos,
+        mediaGroups,
+        mediaCount: mediaGroups.length,
         statistics: fxResult.statistics,
       });
     }

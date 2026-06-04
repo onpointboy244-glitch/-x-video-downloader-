@@ -150,6 +150,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return null;
   }
 
+  // Format duration in seconds to mm:ss
+  function formatDuration(seconds) {
+    if (!seconds || seconds <= 0) return "";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+
   // Display results in the DOM
   function displayResults(data) {
     // Set text contents — author is the display name, username is the handle
@@ -179,20 +187,115 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
-    // Set thumbnail
-    if (data.thumbnail) {
-      videoThumbnail.src = data.thumbnail;
-      videoThumbnail.classList.remove("hidden");
-    } else {
-      videoThumbnail.src = "";
-      videoThumbnail.classList.add("hidden");
-    }
-
     // Build download buttons
     downloadLinksList.innerHTML = "";
 
-    if (data.videos && data.videos.length > 0) {
-      // Sort resolutions descending (e.g. 720p, 480p, 270p)
+    // New format: mediaGroups (one per video in the tweet)
+    if (data.mediaGroups && data.mediaGroups.length > 0) {
+      data.mediaGroups.forEach((group) => {
+        // Create a group section for this video
+        const groupSection = document.createElement("div");
+        groupSection.className = "media-group";
+
+        // Group header with thumbnail + video label
+        const groupHeader = document.createElement("div");
+        groupHeader.className = "media-group-header";
+
+        const thumbImg = document.createElement("img");
+        thumbImg.className = "media-group-thumb";
+        thumbImg.alt = `Video ${group.index} thumbnail`;
+        thumbImg.src = group.thumbnail || data.thumbnail || "";
+
+        const groupInfo = document.createElement("div");
+        groupInfo.className = "media-group-info";
+        const durationStr = formatDuration(group.duration);
+        groupInfo.innerHTML = `
+          <span class="media-group-label">Video ${group.index}${data.mediaCount > 1 ? ` of ${data.mediaCount}` : ""}</span>
+          ${durationStr ? `<span class="media-group-duration"><i class="fa-regular fa-clock"></i> ${durationStr}</span>` : ""}
+        `;
+
+        groupHeader.appendChild(thumbImg);
+        groupHeader.appendChild(groupInfo);
+        groupSection.appendChild(groupHeader);
+
+        // Sort variants by resolution descending
+        const sortedVariants = [...group.variants].sort((a, b) => {
+          const getResValue = (res) => {
+            const match = res.match(/(\d+)/);
+            return match ? parseInt(match[0], 10) : 0;
+          };
+          return getResValue(b.resolution) - getResValue(a.resolution);
+        });
+
+        // Download items for this video
+        const itemsContainer = document.createElement("div");
+        itemsContainer.className = "media-group-items";
+
+        sortedVariants.forEach((video) => {
+          const itemDiv = document.createElement("div");
+          itemDiv.className = "download-item";
+
+          // Quality info section
+          const qualityDiv = document.createElement("div");
+          qualityDiv.className = "download-quality";
+
+          const badge = document.createElement("span");
+          badge.className = "quality-badge";
+          let displayRes = video.qualityLabel || video.resolution;
+          if (displayRes && displayRes !== "unknown" && !video.qualityLabel) {
+            const dimMatch = displayRes.match(/^(\d+)x(\d+)$/);
+            if (dimMatch) {
+              displayRes = `${dimMatch[2]}p`;
+            }
+          }
+          badge.textContent = (displayRes || "N/A").toUpperCase();
+
+          // Add quality-tier color class
+          const qualityClass = getQualityClass(video.qualityLabel || video.resolution);
+          if (qualityClass) {
+            badge.classList.add(qualityClass);
+          }
+
+          // File type and size info
+          const infoSpan = document.createElement("span");
+          infoSpan.className = "file-type";
+          const sizeStr = video.fileSize ? formatFileSize(video.fileSize) : "";
+          infoSpan.textContent = sizeStr ? `MP4 • ${sizeStr}` : "MP4 (Video)";
+
+          qualityDiv.appendChild(badge);
+          qualityDiv.appendChild(infoSpan);
+
+          // Action button
+          const downloadBtn = document.createElement("a");
+          downloadBtn.className = "btn-download-action";
+          downloadBtn.href = `/api/download?url=${encodeURIComponent(video.url)}`;
+          downloadBtn.target = "_blank";
+          downloadBtn.innerHTML = `
+            <span>Download</span>
+            <i class="fa-solid fa-arrow-down-to-bracket"></i>
+          `;
+
+          itemDiv.appendChild(qualityDiv);
+          itemDiv.appendChild(downloadBtn);
+
+          itemsContainer.appendChild(itemDiv);
+        });
+
+        groupSection.appendChild(itemsContainer);
+        downloadLinksList.appendChild(groupSection);
+      });
+    }
+    // Legacy fallback: flat videos array (VxTwitter / TwitSave)
+    else if (data.videos && data.videos.length > 0) {
+      // Set thumbnail for single-video tweets
+      if (data.thumbnail) {
+        videoThumbnail.src = data.thumbnail;
+        videoThumbnail.classList.remove("hidden");
+      } else {
+        videoThumbnail.src = "";
+        videoThumbnail.classList.add("hidden");
+      }
+
       const sortedVideos = [...data.videos].sort((a, b) => {
         const getResValue = (res) => {
           const match = res.match(/(\d+)/);
@@ -202,20 +305,16 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       sortedVideos.forEach((video) => {
-        // Construct the item element
         const itemDiv = document.createElement("div");
         itemDiv.className = "download-item";
 
-        // Quality info section
         const qualityDiv = document.createElement("div");
         qualityDiv.className = "download-quality";
 
         const badge = document.createElement("span");
         badge.className = "quality-badge";
-        // Use qualityLabel from server if available, otherwise parse from resolution
         let displayRes = video.qualityLabel || video.resolution;
         if (displayRes && displayRes !== "unknown" && !video.qualityLabel) {
-          // If format is "720x1280", show "720p"
           const dimMatch = displayRes.match(/^(\d+)x(\d+)$/);
           if (dimMatch) {
             displayRes = `${dimMatch[2]}p`;
@@ -223,13 +322,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         badge.textContent = (displayRes || "N/A").toUpperCase();
 
-        // Add quality-tier color class
         const qualityClass = getQualityClass(video.qualityLabel || video.resolution);
         if (qualityClass) {
           badge.classList.add(qualityClass);
         }
 
-        // File type and size info
         const infoSpan = document.createElement("span");
         infoSpan.className = "file-type";
         const sizeStr = video.fileSize ? formatFileSize(video.fileSize) : "";
@@ -238,10 +335,8 @@ document.addEventListener("DOMContentLoaded", () => {
         qualityDiv.appendChild(badge);
         qualityDiv.appendChild(infoSpan);
 
-        // Action button (uses server proxy to force browser download)
         const downloadBtn = document.createElement("a");
         downloadBtn.className = "btn-download-action";
-        // Use our proxy endpoint to download with custom filename
         downloadBtn.href = `/api/download?url=${encodeURIComponent(video.url)}`;
         downloadBtn.target = "_blank";
         downloadBtn.innerHTML = `
@@ -255,6 +350,10 @@ document.addEventListener("DOMContentLoaded", () => {
         downloadLinksList.appendChild(itemDiv);
       });
     } else {
+      // No thumbnail to show for multi-video tweets without a group thumbnail
+      videoThumbnail.src = "";
+      videoThumbnail.classList.add("hidden");
+
       const noLinks = document.createElement("p");
       noLinks.style.color = "var(--text-secondary)";
       noLinks.style.fontSize = "0.9rem";
