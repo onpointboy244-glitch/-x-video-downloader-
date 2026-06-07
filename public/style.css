@@ -1404,7 +1404,7 @@ body::before {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 500px) {
   .hero-title {
     font-size: 1.7rem;
     letter-spacing: -1px;
@@ -1424,33 +1424,20 @@ body::before {
     align-items: center;
     text-align: center;
   }
-}
 
-/* Very small phones — stack button below input */
-@media (max-width: 420px) {
-  .input-group {
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    border-radius: 14px;
+  /* Keep horizontal layout, just shrink button text */
+  .btn-primary {
+    padding: 0 16px;
+    font-size: 0.88rem;
+    gap: 6px;
   }
 
-  .input-icon {
+  .btn-primary .btn-text {
     display: none;
   }
 
-  .input-group input {
-    width: 100%;
-    height: 44px;
-    padding: 0 8px;
-    font-size: 0.9rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .btn-primary {
-    width: 100%;
-    justify-content: center;
-    height: 44px;
-    font-size: 0.95rem;
+  .btn-primary .btn-icon {
+    margin: 0;
+    font-size: 1.1rem;
   }
 }
