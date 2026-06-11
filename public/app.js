@@ -19,6 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // FAQ Accordion logic
   const faqQuestions = document.querySelectorAll(".faq-question");
   faqQuestions.forEach((question) => {
+    // Link question to its answer panel via IDs added in HTML
+    const answerEl = question.closest(".faq-item")?.querySelector(".faq-answer");
+    const answerId = answerEl?.id;
+    question.setAttribute("role", "button");
+    question.setAttribute("aria-expanded", "false");
+    if (answerId) question.setAttribute("aria-controls", answerId);
+
     function toggleFaq() {
       const currentItem = question.parentElement;
       const isActive = currentItem.classList.contains("active");
@@ -26,11 +33,16 @@ document.addEventListener("DOMContentLoaded", () => {
       // Close all other items
       document.querySelectorAll(".faq-item").forEach((item) => {
         item.classList.remove("active");
+        const q = item.querySelector(".faq-question");
+        if (q) q.setAttribute("aria-expanded", "false");
       });
 
       // Toggle current item
       if (!isActive) {
         currentItem.classList.add("active");
+        question.setAttribute("aria-expanded", "true");
+      } else {
+        question.setAttribute("aria-expanded", "false");
       }
     }
 
@@ -59,6 +71,15 @@ document.addEventListener("DOMContentLoaded", () => {
         hamburgerBtn.classList.remove("open");
         mobileNav.classList.remove("open");
       });
+    });
+
+    // Close mobile nav on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && mobileNav.classList.contains("open")) {
+        hamburgerBtn.classList.remove("open");
+        mobileNav.classList.remove("open");
+        hamburgerBtn.focus();
+      }
     });
   }
 
@@ -149,6 +170,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 1000);
 
+    // Focus the dismiss button for keyboard users
+    setTimeout(() => dismissBtn.focus(), 50);
+
     let dismissed = false;
     function dismissOverlay() {
       if (dismissed) return;
@@ -156,9 +180,20 @@ document.addEventListener("DOMContentLoaded", () => {
       interstitial.classList.add("hidden");
       clearInterval(countdownInterval);
       dismissBtn.removeEventListener("click", dismissOverlay);
+      document.removeEventListener("keydown", onInterstitialKeydown);
+      // Return focus to the fetch button
+      btnFetch.focus();
+    }
+
+    function onInterstitialKeydown(e) {
+      if (e.key === "Escape" && !dismissed) {
+        e.preventDefault();
+        dismissOverlay();
+      }
     }
 
     dismissBtn.addEventListener("click", dismissOverlay);
+    document.addEventListener("keydown", onInterstitialKeydown);
 
     // Auto-dismiss after 3s
     setTimeout(() => {

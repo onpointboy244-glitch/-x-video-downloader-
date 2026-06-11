@@ -18,6 +18,9 @@
   <script src="https://pl29594598.effectivecpmnetwork.com/54/e6/7c/54e67c6cc1e1c3c1588c33167d55f5f3.js"></script>
 </head>
 <body>
+  <!-- Skip to content — keyboard and screen reader bypass -->
+  <a href="#downloader" class="skip-link">Skip to content</a>
+
   <header class="app-header">
     <div class="container header-container">
       <div class="logo-area">
@@ -72,6 +75,7 @@
                   required
                   autocomplete="off"
                   spellcheck="false"
+                  aria-label="Paste X or Twitter post URL"
                 >
                 <button type="submit" id="btn-fetch" class="btn-primary">
                   <span class="btn-text">Get Video</span>
@@ -263,7 +267,7 @@
               <span>Is it completely free to use?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-a1">
               <p>Yes, X-Downloader is completely free. There are no fees, premium subscription tiers, or download limits. You can download as many videos and GIFs as you like.</p>
             </div>
           </div>
@@ -273,7 +277,7 @@
               <span>Where are the downloaded videos saved?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-a2">
               <p>Videos are usually saved in your browser&rsquo;s default &quot;Downloads&quot; folder. On smartphones, they will also appear in your Photos or Gallery app after downloading.</p>
             </div>
           </div>
@@ -283,7 +287,7 @@
               <span>Why do I get an error when fetching a link?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-a3">
               <p>This can happen if the tweet is from a private account (which cannot be fetched), the tweet has been deleted, the post does not contain any video or GIF, or if X is temporarily rate-limiting requests. Make sure the tweet is public and readable by anyone.</p>
             </div>
           </div>
@@ -293,7 +297,7 @@
               <span>Does X-Downloader store copies of downloaded videos?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
-            <div class="faq-answer">
+            <div class="faq-answer" id="faq-a4">
               <p>Absolutely not. The app acts as an on-the-fly streaming gateway to extract and deliver direct media files. We do not store, host, or cache any videos or metadata on our server.</p>
             </div>
           </div>

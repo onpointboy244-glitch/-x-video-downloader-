@@ -91,6 +91,28 @@ body {
   overflow-x: hidden;
 }
 
+/* ---------- Skip-to-Content Link ---------- */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 2000;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  border-radius: 0 0 10px 0;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+}
+
 /* ---------- Utility ---------- */
 .container {
   width: 100%;
@@ -330,7 +352,6 @@ body {
 .input-group input::placeholder {
   color: var(--text-muted);
   font-weight: 400;
-  opacity: 0.7;
 }
 
 /* ---------- Primary Button ---------- */
