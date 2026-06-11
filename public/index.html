@@ -8,7 +8,7 @@
 
   <!-- Modern Typography (Outfit) & Icons (Font Awesome) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -18,12 +18,6 @@
   <script src="https://pl29594598.effectivecpmnetwork.com/54/e6/7c/54e67c6cc1e1c3c1588c33167d55f5f3.js"></script>
 </head>
 <body>
-  <!-- Ambient background glow elements -->
-  <div class="bg-glow bg-glow-1"></div>
-  <div class="bg-glow bg-glow-2"></div>
-  <div class="bg-glow bg-glow-3"></div>
-  <div class="bg-glow bg-glow-4"></div>
-
   <header class="app-header">
     <div class="container header-container">
       <div class="logo-area">
@@ -38,7 +32,19 @@
         <a href="#features" class="nav-link">Features</a>
         <a href="#faq" class="nav-link">FAQ</a>
       </nav>
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation menu">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
     </div>
+    <!-- Mobile Navigation Drawer -->
+    <nav class="mobile-nav" id="mobile-nav">
+      <a href="#downloader" class="nav-link active">Downloader</a>
+      <a href="#how-to-use" class="nav-link">How to Use</a>
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#faq" class="nav-link">FAQ</a>
+    </nav>
   </header>
 
   <main class="main-content">
@@ -46,22 +52,10 @@
     <section id="downloader" class="downloader-section">
       <div class="container hero-container">
         <div class="hero-text-area">
-          <span class="badge">🚀 100% Free & Fast</span>
-          <h1 class="hero-title">Download <span class="gradient-text">X & Twitter</span> Videos Instantly</h1>
+          <span class="badge">&#x1F680; 100% Free & Fast</span>
+          <h1 class="hero-title">Download <span class="accent-underline">X & Twitter</span> Videos Instantly</h1>
           <p class="hero-subtitle">Paste the link of any X (Twitter) tweet containing a video or GIF, and extract direct download links in multiple resolutions in one click.</p>
         </div>
-
-        <!-- Ad Banner 1: Below hero text -->
-        <script>
-          atOptions = {
-            'key' : '5e83079e3ebea9decd39df94d399e34a',
-            'format' : 'iframe',
-            'height' : 60,
-            'width' : 468,
-            'params' : {}
-          };
-        </script>
-        <script src="https://www.highperformanceformat.com/5e83079e3ebea9decd39df94d399e34a/invoke.js"></script>
 
         <div class="downloader-card-wrapper">
           <div class="downloader-card">
@@ -80,19 +74,19 @@
                   spellcheck="false"
                 >
                 <button type="submit" id="btn-fetch" class="btn-primary">
-                  <span class="btn-text">Extract</span>
-                  <i class="fa-solid fa-wand-magic-sparkles btn-icon"></i>
+                  <span class="btn-text">Get Video</span>
+                  <i class="fa-solid fa-arrow-right-to-bracket btn-icon"></i>
                 </button>
               </div>
             </form>
 
             <!-- Loading Spinner (hidden by default) -->
-            <div id="loader-container" class="loader-container hidden">
+            <div id="loader-container" class="loader-container hidden" aria-live="polite">
               <div class="spinner-wrapper">
                 <div class="spinner"></div>
                 <div class="spinner-inner"></div>
               </div>
-              <p class="loader-text">Analyzing tweet and extracting media streams...</p>
+              <p class="loader-text">Fetching media streams from X&hellip;</p>
             </div>
 
             <!-- Ad Banner 2: Inside card, below loader -->
@@ -110,18 +104,21 @@
             </div>
 
             <!-- Error Alert (hidden by default) -->
-            <div id="error-container" class="error-container hidden">
+            <div id="error-container" class="error-container hidden" role="alert">
               <div class="error-icon">
                 <i class="fa-solid fa-triangle-exclamation"></i>
               </div>
               <div class="error-content">
-                <h4 class="error-title">Extraction Failed</h4>
-                <p id="error-message" class="error-desc">Invalid tweet URL or video content not found. Make sure the URL is public and contains a video.</p>
+                <h4 class="error-title">Couldn't Load Video</h4>
+                <p id="error-message" class="error-desc">We couldn't find a video at that URL. Make sure the tweet is public and contains a video or GIF.</p>
+                <div class="error-actions">
+                  <button id="btn-retry" class="btn-retry">Try Again</button>
+                </div>
               </div>
             </div>
 
             <!-- Result Card (hidden by default) -->
-            <div id="result-container" class="result-container hidden">
+            <div id="result-container" class="result-container hidden" aria-live="polite">
               <div class="result-divider"></div>
 
               <div class="tweet-info-card">
@@ -144,8 +141,8 @@
                   </div>
                 </div>
 
-                <div class="media-preview-container">
-                  <img id="video-thumbnail" src="" alt="Video Thumbnail Preview" class="video-thumbnail">
+                <div class="media-preview-container hidden" id="media-preview-container">
+                  <img id="video-thumbnail" alt="Video thumbnail preview" class="video-thumbnail" loading="lazy">
                   <div class="preview-overlay">
                     <i class="fa-solid fa-circle-play play-preview-icon"></i>
                   </div>
@@ -154,7 +151,7 @@
 
               <div id="download-options-container" class="download-options-container">
                 <h3 class="options-title"><i class="fa-solid fa-download"></i> Available Downloads</h3>
-                <p class="options-subtitle">Select your preferred quality. Click "Download" to save immediately.</p>
+                <p class="options-subtitle">Select your preferred quality. Click &quot;Download&quot; to save immediately.</p>
 
                 <div id="download-links-list" class="download-links-list">
                   <!-- Generated links will go here -->
@@ -167,6 +164,20 @@
       </div>
     </section>
 
+    <!-- Ad Banner 1: Below downloader section -->
+    <div class="ad-between-sections">
+      <script>
+        atOptions = {
+          'key' : '5e83079e3ebea9decd39df94d399e34a',
+          'format' : 'iframe',
+          'height' : 60,
+          'width' : 468,
+          'params' : {}
+        };
+      </script>
+      <script src="https://www.highperformanceformat.com/5e83079e3ebea9decd39df94d399e34a/invoke.js"></script>
+    </div>
+
     <!-- How to Use Section -->
     <script async="async" data-cfasync="false" src="https://pl29594600.effectivecpmnetwork.com/8bfd24c852ac4968e83044b3d4e9d3bf/invoke.js"></script>
     <div id="container-8bfd24c852ac4968e83044b3d4e9d3bf"></div>
@@ -178,21 +189,18 @@
 
         <div class="steps-grid">
           <div class="step-card">
-            <div class="step-number">01</div>
             <div class="step-icon"><i class="fa-solid fa-copy"></i></div>
             <h3 class="step-title">Copy Tweet Link</h3>
-            <p class="step-desc">Open X/Twitter, find the post containing the video, click the share icon and select "Copy link".</p>
+            <p class="step-desc">Open X/Twitter, find the post containing the video, click the share icon and select &quot;Copy link&quot;.</p>
           </div>
 
           <div class="step-card">
-            <div class="step-number">02</div>
             <div class="step-icon"><i class="fa-solid fa-paste"></i></div>
             <h3 class="step-title">Paste the URL</h3>
-            <p class="step-desc">Paste the copied link into the input box above, then click the "Extract" button to parse the streams.</p>
+            <p class="step-desc">Paste the copied link into the input above, then click &quot;Get Video&quot; to start the download process.</p>
           </div>
 
           <div class="step-card">
-            <div class="step-number">03</div>
             <div class="step-icon"><i class="fa-solid fa-file-arrow-down"></i></div>
             <h3 class="step-title">Download Video</h3>
             <p class="step-desc">Choose from the available resolutions (e.g. 720p, 480p) and download the video directly to your device.</p>
@@ -204,8 +212,8 @@
     <!-- Features Section -->
     <section id="features" class="features-section">
       <div class="container">
-        <h2 class="section-title text-center">Engineered for Excellence</h2>
-        <p class="section-subtitle text-center">Discover the benefits of using X-Downloader.</p>
+        <h2 class="section-title text-center">Why X-Downloader</h2>
+        <p class="section-subtitle text-center">Fast, free, and built around your privacy.</p>
 
         <div class="features-grid">
           <div class="feature-item">
@@ -251,7 +259,7 @@
 
         <div class="faq-list">
           <div class="faq-item">
-            <div class="faq-question" id="faq-q1">
+            <div class="faq-question" id="faq-q1" role="button" tabindex="0">
               <span>Is it completely free to use?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
@@ -261,17 +269,17 @@
           </div>
 
           <div class="faq-item">
-            <div class="faq-question" id="faq-q2">
+            <div class="faq-question" id="faq-q2" role="button" tabindex="0">
               <span>Where are the downloaded videos saved?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
             <div class="faq-answer">
-              <p>Videos are usually saved in your browser's default "Downloads" folder. On smartphones, they will also appear in your Photos or Gallery app after downloading.</p>
+              <p>Videos are usually saved in your browser&rsquo;s default &quot;Downloads&quot; folder. On smartphones, they will also appear in your Photos or Gallery app after downloading.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <div class="faq-question" id="faq-q3">
+            <div class="faq-question" id="faq-q3" role="button" tabindex="0">
               <span>Why do I get an error when fetching a link?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
@@ -281,7 +289,7 @@
           </div>
 
           <div class="faq-item">
-            <div class="faq-question" id="faq-q4">
+            <div class="faq-question" id="faq-q4" role="button" tabindex="0">
               <span>Does X-Downloader store copies of downloaded videos?</span>
               <span class="faq-icon"><i class="fa-solid fa-chevron-down"></i></span>
             </div>
@@ -296,7 +304,7 @@
 
   <footer class="app-footer">
     <div class="container footer-content text-center">
-      <p class="footer-copy">&copy; 2026 X-Downloader. Developed for educational purposes. All media assets belong to their respective owners.</p>
+      <p class="footer-copy">&copy; 2026 X-Downloader. All media assets belong to their respective owners.</p>
       <div class="footer-links">
         <a href="#downloader">Downloader</a>
         <a href="#how-to-use">How to Use</a>
@@ -305,6 +313,17 @@
       </div>
     </div>
   </footer>
+
+  <div id="ad-interstitial" class="ad-interstitial hidden" role="dialog" aria-modal="true" aria-label="Advertisement">
+    <div class="ad-interstitial-inner">
+      <p class="ad-support-text">Support X-Downloader — ads keep it free</p>
+      <div id="ad-interstitial-countdown" class="ad-countdown">Auto-closes in 3&hellip;</div>
+      <div class="ad-interstitial-actions">
+        <span class="ad-dismiss-hint">Skip ad</span>
+        <button id="ad-dismiss-btn" class="ad-dismiss-btn">Continue &rarr;</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

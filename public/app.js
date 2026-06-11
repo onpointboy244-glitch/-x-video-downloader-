@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const loaderContainer = document.getElementById("loader-container");
   const errorContainer = document.getElementById("error-container");
   const errorMessage = document.getElementById("error-message");
+  const retryBtn = document.getElementById("btn-retry");
   const resultContainer = document.getElementById("result-container");
 
   // Result elements
@@ -18,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FAQ Accordion logic
   const faqQuestions = document.querySelectorAll(".faq-question");
   faqQuestions.forEach((question) => {
-    question.addEventListener("click", () => {
+    function toggleFaq() {
       const currentItem = question.parentElement;
       const isActive = currentItem.classList.contains("active");
 
@@ -31,32 +32,84 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isActive) {
         currentItem.classList.add("active");
       }
+    }
+
+    question.addEventListener("click", toggleFaq);
+    question.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleFaq();
+      }
     });
   });
 
-  // Smooth scroll active state highlighting
-  const sections = document.querySelectorAll("section");
+  // Mobile nav toggle
+  const hamburgerBtn = document.getElementById("hamburger-btn");
+  const mobileNav = document.getElementById("mobile-nav");
+
+  if (hamburgerBtn && mobileNav) {
+    hamburgerBtn.addEventListener("click", () => {
+      hamburgerBtn.classList.toggle("open");
+      mobileNav.classList.toggle("open");
+    });
+
+    // Close mobile nav when a link is clicked
+    mobileNav.querySelectorAll(".nav-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        hamburgerBtn.classList.remove("open");
+        mobileNav.classList.remove("open");
+      });
+    });
+  }
+
+  // Active nav highlighting via IntersectionObserver
   const navLinks = document.querySelectorAll(".nav-link");
+  const sections = document.querySelectorAll("section");
 
-  window.addEventListener("scroll", () => {
-    let current = "";
-    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
-
-    sections.forEach((section) => {
-      const sectionTop = section.offsetTop;
-      const sectionHeight = section.clientHeight;
-      if (scrollPos >= sectionTop - 120) {
-        current = section.getAttribute("id");
+  if (typeof IntersectionObserver !== "undefined") {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            navLinks.forEach((link) => {
+              link.classList.remove("active");
+              if (link.getAttribute("href").substring(1) === entry.target.getAttribute("id")) {
+                link.classList.add("active");
+              }
+            });
+          }
+        });
+      },
+      { rootMargin: "-120px 0px -60% 0px" },
+    );
+    sections.forEach((s) => observer.observe(s));
+  } else {
+    // Fallback for older browsers: debounced scroll listener
+    let ticking = false;
+    window.addEventListener("scroll", () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const scrollPos = window.scrollY || document.documentElement.scrollTop;
+          let current = "";
+          sections.forEach((section) => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.clientHeight;
+            if (scrollPos >= sectionTop - 120) {
+              current = section.getAttribute("id");
+            }
+          });
+          navLinks.forEach((link) => {
+            link.classList.remove("active");
+            if (link.getAttribute("href").substring(1) === current) {
+              link.classList.add("active");
+            }
+          });
+          ticking = false;
+        });
+        ticking = true;
       }
     });
-
-    navLinks.forEach((link) => {
-      link.classList.remove("active");
-      if (link.getAttribute("href").substring(1) === current) {
-        link.classList.add("active");
-      }
-    });
-  });
+  }
 
   // Format bytes into human-readable file size
   function formatFileSize(bytes) {
@@ -71,32 +124,46 @@ document.addEventListener("DOMContentLoaded", () => {
     return size.toFixed(unitIndex === 0 ? 0 : 1) + " " + units[unitIndex];
   }
 
-  // Full-page ad overlay — loads ad script properly so it executes
+  // Ad interstitial — premium, non-blocking with immediate skip
   function showAdOverlay() {
-    // Create a proper script element that the browser will execute
-    const adScript = document.createElement("script");
-    adScript.src =
-      "https://pl29594598.effectivecpmnetwork.com/54/e6/7c/54e67c6cc1e1c3c1588c33167d55f5f3.js";
-    adScript.async = true;
-    document.body.appendChild(adScript);
+    const interstitial = document.getElementById("ad-interstitial");
+    const countdownEl = document.getElementById("ad-interstitial-countdown");
+    const dismissBtn = document.getElementById("ad-dismiss-btn");
+    if (!interstitial) return;
 
-    // Create clickable overlay on top of everything
-    const overlay = document.createElement("div");
-    overlay.id = "ad-overlay";
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 99999;
-      background: transparent;
-      cursor: pointer;
-    `;
-    document.body.appendChild(overlay);
+    interstitial.classList.remove("hidden");
 
-    // Remove overlay after 6 seconds so user can interact with results
+    // Always immediately dismissible
+    dismissBtn.disabled = false;
+
+    let secondsLeft = 3;
+    countdownEl.textContent = "Auto-closes in " + secondsLeft + "…";
+
+    const countdownInterval = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft > 0) {
+        countdownEl.textContent = "Auto-closes in " + secondsLeft + "…";
+      } else {
+        countdownEl.textContent = "You can continue now";
+        clearInterval(countdownInterval);
+      }
+    }, 1000);
+
+    let dismissed = false;
+    function dismissOverlay() {
+      if (dismissed) return;
+      dismissed = true;
+      interstitial.classList.add("hidden");
+      clearInterval(countdownInterval);
+      dismissBtn.removeEventListener("click", dismissOverlay);
+    }
+
+    dismissBtn.addEventListener("click", dismissOverlay);
+
+    // Auto-dismiss after 3s
     setTimeout(() => {
-      overlay.remove();
-      adScript.remove();
-    }, 6000);
+      dismissOverlay();
+    }, 3000);
   }
 
   // Handle Form Submission
@@ -115,7 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
     showAdOverlay();
 
     try {
-      console.log(`Sending API request to fetch info for: ${tweetUrl}`);
       const response = await fetch(
         `/api/fetch?url=${encodeURIComponent(tweetUrl)}`,
       );
@@ -126,13 +192,12 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         showError(
           data.error ||
-            "Failed to extract video links. Please verify the URL and try again.",
+            "Couldn't find any video at that URL. Make sure the tweet is public and contains a video or GIF.",
         );
       }
     } catch (err) {
-      console.error("Fetch request error:", err);
       showError(
-        "Unable to connect to the downloader service. Please check your internet connection and try again.",
+        "Couldn't reach the downloader service. Check your internet connection and try again.",
       );
     } finally {
       showLoader(false);
@@ -160,6 +225,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Display results in the DOM
   function displayResults(data) {
+    // Reference to media preview
+    const mediaPreview = document.getElementById("media-preview-container");
+
+    // Helper to show thumbnail if present
+    function setThumbnail(src) {
+      if (src) {
+        videoThumbnail.src = src;
+        mediaPreview.classList.remove("hidden");
+        videoThumbnail.onerror = () => { mediaPreview.classList.add("hidden"); };
+      } else {
+        videoThumbnail.removeAttribute("src");
+        mediaPreview.classList.add("hidden");
+      }
+    }
+
     // Set text contents — author is the display name, username is the handle
     authorName.textContent = data.author || "X User";
     authorHandle.textContent = data.username ? `@${data.username}` : "";
@@ -204,7 +284,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const thumbImg = document.createElement("img");
         thumbImg.className = "media-group-thumb";
         thumbImg.alt = `Video ${group.index} thumbnail`;
-        thumbImg.src = group.thumbnail || data.thumbnail || "";
+        thumbImg.loading = "lazy";
+        const thumbSrc = group.thumbnail || data.thumbnail;
+        if (thumbSrc) {
+          thumbImg.src = thumbSrc;
+          thumbImg.onerror = () => { thumbImg.style.display = "none"; };
+        } else {
+          thumbImg.style.display = "none";
+        }
 
         const groupInfo = document.createElement("div");
         groupInfo.className = "media-group-info";
@@ -226,6 +313,11 @@ document.addEventListener("DOMContentLoaded", () => {
           };
           return getResValue(b.resolution) - getResValue(a.resolution);
         });
+
+        // Show thumbnail for first media group
+        if (group === data.mediaGroups[0] && data.thumbnail) {
+          setThumbnail(data.thumbnail);
+        }
 
         // Download items for this video
         const itemsContainer = document.createElement("div");
@@ -288,13 +380,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Legacy fallback: flat videos array (VxTwitter / TwitSave)
     else if (data.videos && data.videos.length > 0) {
       // Set thumbnail for single-video tweets
-      if (data.thumbnail) {
-        videoThumbnail.src = data.thumbnail;
-        videoThumbnail.classList.remove("hidden");
-      } else {
-        videoThumbnail.src = "";
-        videoThumbnail.classList.add("hidden");
-      }
+      setThumbnail(data.thumbnail);
 
       const sortedVideos = [...data.videos].sort((a, b) => {
         const getResValue = (res) => {
@@ -350,15 +436,13 @@ document.addEventListener("DOMContentLoaded", () => {
         downloadLinksList.appendChild(itemDiv);
       });
     } else {
-      // No thumbnail to show for multi-video tweets without a group thumbnail
-      videoThumbnail.src = "";
-      videoThumbnail.classList.add("hidden");
+      // No thumbnail available
+      setThumbnail(null);
 
       const noLinks = document.createElement("p");
-      noLinks.style.color = "var(--text-secondary)";
-      noLinks.style.fontSize = "0.9rem";
+      noLinks.className = "fallback-message";
       noLinks.textContent =
-        "No playable video streams extracted. Please check the URL.";
+        "This tweet doesn't seem to contain any playable video or GIF content.";
       downloadLinksList.appendChild(noLinks);
     }
 
@@ -387,9 +471,24 @@ document.addEventListener("DOMContentLoaded", () => {
   function showError(message) {
     errorMessage.textContent = message;
     errorContainer.classList.remove("hidden");
-    // Scroll error into view
     setTimeout(() => {
       errorContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if (retryBtn) retryBtn.focus({ preventScroll: true });
     }, 100);
+  }
+
+  // Retry button: re-submit the form with the current URL
+  if (retryBtn) {
+    retryBtn.addEventListener("click", () => {
+      // Trigger form submit to re-run the full flow
+      downloadForm.dispatchEvent(new Event("submit"));
+    });
+  }
+
+  // Auto-update copyright year
+  const copyrightEl = document.querySelector(".footer-copy");
+  if (copyrightEl) {
+    const year = new Date().getFullYear();
+    copyrightEl.textContent = copyrightEl.textContent.replace(/\d{4}/, year);
   }
 });
